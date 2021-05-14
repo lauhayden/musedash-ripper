@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "musedash-ripper"
+version = "1.0.0"
+description = "Tool for ripping the Muse Dash soundtrack."
+readme = "README.md"
+authors = ["Hayden Lau"]
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Multimedia :: Sound/Audio"
+]
+repository = "https://github.com/lauhayden/musedash-ripper"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+json5 = "^0.9.5"
+mutagen = "^1.45.1"
+Pillow = "^8.2.0"
+# unitypack has unreleased changes that we need
+unitypack = { git = "https://github.com/HearthSim/UnityPack.git" }
+
+[tool.poetry.dev-dependencies]
+black = "^21.5b1"
+pyoxidizer = "^0.16.2"
+
+[tool.poetry.scripts]
+musedash-ripper = "musedash_ripper.gui:run"
+
+[tool.black]
+line-length = 100
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
