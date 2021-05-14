@@ -27,6 +27,10 @@ COVER_DIR = os.path.join(DATAS_DIR, "cover")
 # Remove these characters before writing filename
 ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*'
 
+DEFAULT_GAME_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Muse Dash"
+DEFAULT_OUT_DIR = os.path.join(os.getcwd(), "output")
+
+
 LANGUAGES = {
     None: None,
     "Chinese Simplified": "ChineseS",
@@ -248,7 +252,9 @@ def rip(
     fix_songs(songs)
     if save_songs_csv:
         logger.info("Saving songs.csv...")
-        with open(os.path.join(output_dir, "songs.csv"), "wt", newline="") as csv_file:
+        with open(
+            os.path.join(output_dir, "songs.csv"), "wt", newline="", encoding="utf-8"
+        ) as csv_file:
             songs_to_csv(songs, csv_file)
     normalize_songs(songs)
     if save_covers:

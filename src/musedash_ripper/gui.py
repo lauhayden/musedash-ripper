@@ -36,7 +36,10 @@ class Application(ttk.Frame):
         self.gd_frame = ttk.Frame(self)
         self.gd_label = ttk.Label(self.gd_frame, width=12, text="Game folder")
         self.gd_label.pack(side="left")
-        self.gd_entry = ttk.Entry(self.gd_frame)
+        self.gd_entry = ttk.Entry(
+            self.gd_frame,
+        )
+        self.gd_entry.insert(0, core.DEFAULT_GAME_DIR)
         self.gd_entry.pack(side="left", expand="y", fill="x", padx="0.1c")
         self.gd_button = ttk.Button(self.gd_frame, text="Browse...", command=self.set_gamedir)
         self.gd_button.pack(side="left")
@@ -46,6 +49,7 @@ class Application(ttk.Frame):
         self.od_label = ttk.Label(self.od_frame, width=12, text="Output folder")
         self.od_label.pack(side="left")
         self.od_entry = ttk.Entry(self.od_frame)
+        self.od_entry.insert(0, core.DEFAULT_OUT_DIR)
         self.od_entry.pack(side="left", expand="y", fill="x", padx="0.1c")
         self.od_button = ttk.Button(self.od_frame, text="Browse...", command=self.set_outdir)
         self.od_button.pack(side="left")
@@ -58,7 +62,7 @@ class Application(ttk.Frame):
             textvariable=self.language_var,
             values=list(core.LANGUAGES.keys()),
             state="readonly",
-            width=15,
+            width=17,
         )
         self.language_menu.pack(side="left", expand="y")
         self.ad_var = tk.BooleanVar(self, True)
@@ -95,14 +99,18 @@ class Application(ttk.Frame):
         self.start.pack(side="bottom", pady="0.1c")
 
     def set_gamedir(self):
-        gamedir = filedialog.askdirectory()
-        self.gd_entry.delete(0, "end")
-        self.gd_entry.insert(0, gamedir)
+        gamedir = filedialog.askdirectory(
+            parent=self, initialdir=self.gd_entry.get(), mustexist=True
+        )
+        if gamedir:
+            self.gd_entry.delete(0, "end")
+            self.gd_entry.insert(0, gamedir.replace("/", "\\"))
 
     def set_outdir(self):
-        outdir = filedialog.askdirectory()
-        self.od_entry.delete(0, "end")
-        self.od_entry.insert(0, outdir)
+        outdir = filedialog.askdirectory(parent=self, initialdir=self.od_entry.get())
+        if outdir:
+            self.od_entry.delete(0, "end")
+            self.od_entry.insert(0, outdir.replace("/", "\\"))
 
     def copy_log(self, event=None):
         self.clipboard_clear()
