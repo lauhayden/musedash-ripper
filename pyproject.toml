@@ -17,7 +17,7 @@ json5 = "^0.9.5"
 mutagen = "^1.45.1"
 Pillow = "^8.2.0"
 # unitypack has unreleased changes that we need
-unitypack = { git = "https://github.com/HearthSim/UnityPack.git" }
+unitypack = { git = "https://github.com/lauhayden/UnityPack.git" }
 
 [tool.poetry.dev-dependencies]
 black = "^21.5b1"

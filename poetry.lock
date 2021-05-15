@@ -55,14 +55,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "fsb5"
-version = "1.0"
-description = "Library and to extract audio from FSB5 (FMOD Sample Bank) files"
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "json5"
 version = "0.9.5"
 description = "A Python implementation of the JSON5 data format."
@@ -153,20 +145,19 @@ develop = false
 
 [package.dependencies]
 decrunch = "*"
-fsb5 = "*"
 lz4 = "*"
 Pillow = "*"
 
 [package.source]
 type = "git"
-url = "https://github.com/HearthSim/UnityPack.git"
+url = "https://github.com/lauhayden/UnityPack.git"
 reference = "master"
-resolved_reference = "f8cdc2516538d189606a76986ad2d71c3fad5f8b"
+resolved_reference = "d3526469afc4bffe8931db92450b44392fa73aa6"
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "e392806d69858582960bc79818a02ad19faab5d828ee92862a3a83b9183666af"
+content-hash = "226c27ba0694188ddd954ae47fe04282f2af1e7408674013269bceb30874f8e3"
 
 [metadata.files]
 appdirs = [
@@ -187,9 +178,6 @@ colorama = [
 ]
 decrunch = [
     {file = "decrunch-0.4.0.tar.gz", hash = "sha256:10c1cacccdad22e8cc941edcf40a7230bf5664192a283d5df3e91de9d1961126"},
-]
-fsb5 = [
-    {file = "fsb5-1.0.tar.gz", hash = "sha256:312d28b580e9c4a0032caac80bcc354672216327f430d063c3beb4a4f3fe621d"},
 ]
 json5 = [
     {file = "json5-0.9.5-py2.py3-none-any.whl", hash = "sha256:af1a1b9a2850c7f62c23fde18be4749b3599fd302f494eebf957e2ada6b9e42c"},
