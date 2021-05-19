@@ -212,6 +212,8 @@ def normalize_path_segment(path):
 
 
 def songs_to_csv(songs, csv_file):
+    # write a byte order mark so Excel recognizes CSV as UTF-8
+    csv_file.write("\ufeff")
     # don't include empty genre in CSV file
     field_names = [field.name for field in dataclasses.fields(Song) if field.name != "genre"]
     writer = csv.DictWriter(csv_file, field_names)
