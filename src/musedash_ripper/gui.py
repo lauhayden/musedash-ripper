@@ -17,7 +17,6 @@ class Application(ttk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
-        self.master.resizable(False, False)
         self.master.title("Muse Dash Ripper")
         self.pack(expand="y", fill="both", padx="0.2c", pady="0.2c", ipadx="0.1c", ipady="0.1c")
         self.create_widgets()
@@ -83,17 +82,17 @@ class Application(ttk.Frame):
         self.options_frame.pack(fill="x", pady="0.1c")
 
         self.sep = ttk.Separator(self)
-        self.sep.pack(expand="y", fill="x", pady="0.1c")
+        self.sep.pack(fill="x", pady="0.1c")
 
         self.progress_var = tk.DoubleVar(self, 0.0)
         self.progress_bar = ttk.Progressbar(self, variable=self.progress_var, mode="determinate")
-        self.progress_bar.pack(expand="y", fill="x", pady="0.1c")
+        self.progress_bar.pack(fill="x", pady="0.1c")
 
         self.log = scrolledtext.ScrolledText(self, height=10, state="disabled")
         # TODO: use keybinds to disable cursor, instead of toggling state?
         # see https://stackoverflow.com/questions/3842155/is-there-a-way-to-make-the-tkinter-text-widget-read-only
         self.log.bind("<Control-c>", self.copy_log)
-        self.log.pack(expand="y", fill="x")
+        self.log.pack(expand="y", fill="both")
 
         self.start = ttk.Button(self, text="Start!", command=self.start_rip)
         self.start.pack(side="bottom", pady="0.1c")
