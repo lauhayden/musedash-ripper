@@ -60,6 +60,9 @@ def fix_songs(songs):
         if song.cover_name == "chaos_glitch_cover":
             song.cover_name = "chaos_cover"
 
+        # misspelled "Everything" in "Cute is Everyting"
+        song.album_name = song.album_name.replace("Everyting", "Everything")
+
 
 def normalize_songs(songs):
     for song in songs:
