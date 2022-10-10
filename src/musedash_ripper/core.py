@@ -4,25 +4,25 @@ import base64
 import contextlib
 import csv
 import dataclasses
+import glob
 import io
 import logging
 import os
 from typing import Optional
+
+import fsb5
 
 # We use JSON5 parsing because the albums JSON asset has trailing commas
 import json5
 from mutagen.oggvorbis import OggVorbis
 from mutagen.flac import Picture
 from PIL import ImageOps
-import unitypack
+import UnityPy
 
 logger = logging.getLogger(__name__)
 
 # TODO: use pathlib
-DATAS_DIR = os.path.join("MuseDash_Data", "StreamingAssets", "AssetBundles", "datas")
-CONFIGS_DIR = os.path.join(DATAS_DIR, "configs")
-MUSICS_DIR = os.path.join(DATAS_DIR, "audios", "stage", "musics")
-COVER_DIR = os.path.join(DATAS_DIR, "cover")
+DATAS_DIR = os.path.join("MuseDash_Data", "StreamingAssets", "aa", "StandaloneWindows64")
 
 # Remove these characters before writing filename
 ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*'
@@ -43,25 +43,36 @@ LANGUAGES = {
 
 @dataclasses.dataclass
 class Song:
-    title: str
-    artist: str
-    album_number: int
-    album_name: str
-    track_number: int
-    track_total: int
-    music_name: str
-    cover_name: str
+    title: str  # human-friendly title
+    artist: str  # human-friendly artist name
+    album_number: int  # internal album number (1-indexed)
+    album_name: str  # human-friendly album name
+    track_number: int  # track number in the album (1-indexed)
+    track_total: int  # number of tracks in the album
+    asset_name: str  # internal code-friendly song name used
+    music_name: str  # music data asset name
+    cover_name: str  # cover data asset name
     genre: Optional[str] = None
 
 
 def fix_songs(songs):
     for song in songs:
-        # fix chaos_glitch_cover not existing
+        # chaos_glitch's asset and cover names are mangled
         if song.cover_name == "chaos_glitch_cover":
             song.cover_name = "chaos_cover"
+        if song.asset_name == "chaos_glitch":
+            song.asset_name = "chaos"
 
         # misspelled "Everything" in "Cute is Everyting"
         song.album_name = song.album_name.replace("Everyting", "Everything")
+
+        # if "_music" is in asset_name, it gets dropped
+        song.asset_name = song.asset_name.replace("_music", "")
+
+        # fm_17314_sugar_radio uses qu_jianhai_de_rizi's cover
+        if song.asset_name == "fm_17314_sugar_radio":
+            song.asset_name = "qu_jianhai_de_rizi"
+            song.cover_name = "qu_jianhai_de_rizi_cover"
 
 
 def normalize_songs(songs):
@@ -73,104 +84,129 @@ def normalize_songs(songs):
         song.genre = "Video Games"
 
 
-def find_asset(bundle, object_type, name, raise_on_not_found=True):
-    for asset in bundle.assets:
-        for object in asset.objects.values():
-            if object.type != object_type:
-                continue
-            data = object.read()
-            if data.name == name:
-                return data
+def find_asset(env, object_type, name, raise_on_not_found=True):
+    for obj in env.objects:
+        if obj.type.name != object_type:
+            continue
+        data = obj.read()
+        if data.name == name:
+            return data
     if raise_on_not_found:
         raise FileNotFoundError(f"Could not find asset '{name}'")
     return None
 
 
+def find_with_prefix(dir_path, prefix):
+    results = glob.glob(os.path.join(dir_path, prefix) + "*")
+    if len(results) != 1:
+        raise FileNotFoundError(f"Could not find unique bundle file with prefix '{prefix}'")
+    return results[0]
+
+
+def load_json(bundle_path, asset_name):
+    with open(bundle_path, "rb") as bundle_file:
+        env = UnityPy.load(bundle_file)
+        data = find_asset(env, "TextAsset", asset_name)
+        return json5.loads(data.text)
+
+
 def parse_config(game_dir, language, progress):
-    language_suffix = LANGUAGES.get(language)
-    with contextlib.ExitStack() as stack:
-        others_path = os.path.join(game_dir, CONFIGS_DIR, "others")
-        others_file = stack.enter_context(open(others_path, "rb"))
-        others_bundle = unitypack.load(others_file)
-        if language_suffix is not None:
-            language_path = os.path.join(game_dir, CONFIGS_DIR, language_suffix.lower())
-            language_file = stack.enter_context(open(language_path, "rb"))
-            language_bundle = unitypack.load(language_file)
+    l_suffix = LANGUAGES.get(language)
+    datas_path = os.path.join(game_dir, DATAS_DIR)
 
-        # find and parse albums JSON
-        albums_data = find_asset(others_bundle, "TextAsset", "albums")
-        albums_json = json5.loads(albums_data.script)
-        if language_suffix is not None:
-            l_albums_data = find_asset(language_bundle, "TextAsset", "albums_" + language_suffix)
-            l_albums_json = json5.loads(l_albums_data.script)
+    # load the "albums" JSON containing info on all albums
+    albums_path = find_with_prefix(datas_path, "config_others_assets_albums_")
+    albums_json = load_json(albums_path, "albums")
+
+    # load the language-specific albums JSON
+    if l_suffix is not None:
+        prefix = "config_" + l_suffix.lower() + "_assets_albums_" + l_suffix.lower() + "_"
+        l_albums_path = find_with_prefix(datas_path, prefix)
+        l_albums_json = load_json(l_albums_path, "albums_" + l_suffix)
+    else:
+        l_albums_json = [{}] * len(albums_json)
+
+    # iterate through the albums
+    songs = []
+    for album_num, (album_entry, l_album_entry) in enumerate(zip(albums_json, l_albums_json), 1):
+        # overlay language-specific stuff onto general album entry
+        album_entry.update(l_album_entry)
+
+        if not album_entry["jsonName"]:
+            # Just as Planned is listed as an album without a jsonName
+            continue
+
+        # load individual album JSON
+        prefix = "config_others_assets_" + album_entry["jsonName"].lower() + "_"
+        entry_path = find_with_prefix(datas_path, prefix)
+        entry_json = load_json(entry_path, album_entry["jsonName"])
+
+        # load the language-specific individual album JSON
+        if l_suffix is not None:
+            prefix = (
+                "config_"
+                + l_suffix.lower()
+                + "_assets_"
+                + album_entry["jsonName"].lower()
+                + "_"
+                + l_suffix.lower()
+                + "_"
+            )
+            l_entry_path = find_with_prefix(datas_path, prefix)
+            l_entry_json = load_json(l_entry_path, album_entry["jsonName"] + "_" + l_suffix)
         else:
-            l_albums_json = [{}] * len(albums_json)
+            l_entry_json = [{}] * len(entry_json)
 
-        songs = []
-        # find and parse individual ALBUM* JSONs
-        for album_num, (album_entry, l_album_entry) in enumerate(
-            zip(albums_json, l_albums_json), 1
+        for track_num, (song_entry, l_song_entry) in enumerate(
+            zip(entry_json, l_entry_json), start=1
         ):
-            album_entry.update(l_album_entry)
-            if not album_entry["jsonName"]:
-                # Just as Planned is listed as an album without a jsonName
-                continue
-            entry_data = find_asset(others_bundle, "TextAsset", album_entry["jsonName"])
-            entry_json = json5.loads(entry_data.script)
-            if language_suffix is not None:
-                asset_name = album_entry["jsonName"] + "_" + language_suffix
-                l_entry_data = find_asset(language_bundle, "TextAsset", asset_name)
-                l_entry_json = json5.loads(l_entry_data.script)
-            else:
-                l_entry_json = [{}] * len(entry_json)
+            # overlay the language-specific stuff onto general song entry
+            song_entry.update(l_song_entry)
 
-            for track_num, (song_entry, l_song_entry) in enumerate(
-                zip(entry_json, l_entry_json), start=1
-            ):
-                song_entry.update(l_song_entry)
-                songs.append(
-                    Song(
-                        title=song_entry["name"],
-                        artist=song_entry["author"],
-                        album_number=int(album_entry["jsonName"].lstrip("ALBUM")),
-                        album_name=album_entry["title"],
-                        track_number=track_num,
-                        track_total=len(entry_json),
-                        music_name=song_entry["music"],
-                        cover_name=song_entry["cover"],
-                    )
+            # construct Song from song and album entries
+            # asset_name reconstructed from cover_name
+            assert song_entry["cover"].endswith("_cover")
+            asset_name = song_entry["cover"][: -len("_cover")]
+            songs.append(
+                Song(
+                    title=song_entry["name"],
+                    artist=song_entry["author"],
+                    album_number=int(album_entry["jsonName"].lstrip("ALBUM")),
+                    album_name=album_entry["title"],
+                    track_number=track_num,
+                    track_total=len(entry_json),
+                    asset_name=asset_name,
+                    music_name=song_entry["music"],
+                    cover_name=song_entry["cover"],
                 )
-            progress(album_num / len(albums_json) * 100)
+            )
+
+        progress(album_num / len(albums_json) * 100)
     return sorted(songs, key=lambda song: (song.album_number, song.track_number))
 
 
-def extract_music(game_dir, music_name):
-    music_path = os.path.join(game_dir, MUSICS_DIR, music_name)
+def extract_music(game_dir, song):
+    datas_path = os.path.join(game_dir, DATAS_DIR)
+    prefix = "music_assets_" + song.music_name + "_"
+    music_path = find_with_prefix(datas_path, prefix)
     with open(music_path, "rb") as music_file:
-        bundle = unitypack.load(music_file)
-        data = find_asset(bundle, "AudioClip", music_name)
-        samples = unitypack.utils.extract_audioclip_samples(data)
-        assert len(samples) == 1
-        ogg_name, bindata = list(samples.items())[0]
-        assert ogg_name == music_name + ".ogg"
-        return io.BytesIO(bindata.tobytes())
+        env = UnityPy.load(music_file)
+        data = find_asset(env, "AudioClip", song.music_name)
+
+        # use python-fsb5 to rebuild the Ogg Vorbis file from FSB5 compressed
+        af = fsb5.FSB5(data.m_AudioData)
+        # there should only be one track
+        assert len(af.samples) == 1
+        return io.BytesIO(af.rebuild_sample(af.samples[0]).tobytes())
 
 
-def extract_cover(game_dir, album_number, cover_name):
-    if album_number == 1:
-        # default songs (album 1) is
-        bundle_names = [f"01_part{part_num}" for part_num in range(1, 10)]
-    else:
-        bundle_names = [f"{album_number:02}"]
-    for bundle_name in bundle_names:
-        bundle_path = os.path.join(game_dir, COVER_DIR, bundle_name)
-        with open(bundle_path, "rb") as bundle_file:
-            bundle = unitypack.load(bundle_file)
-            data = find_asset(bundle, "Texture2D", cover_name, raise_on_not_found=False)
-            if data is not None:
-                # Texture2D objects are flipped
-                return ImageOps.flip(data.image)
-    raise FileNotFoundError(f"Could not find cover asset '{cover_name}' in album {album_number}")
+def extract_cover(game_dir, song):
+    datas_path = os.path.join(game_dir, DATAS_DIR)
+    prefix = "song_" + song.asset_name + "_assets_all_"
+    assets_path = find_with_prefix(datas_path, prefix)
+    with open(assets_path, "rb") as assets_file:
+        env = UnityPy.load(assets_file)
+        return find_asset(env, "Texture2D", song.cover_name).image
 
 
 def embed_metadata(music_file, cover_image, song):
@@ -273,8 +309,8 @@ def rip(
         logger.info("Exporting song: %s by %s", song.title, song.artist)
         album_dirname = normalize_path_segment(song.album_name)
         song_filestem = normalize_path_segment(song.title)
-        music = extract_music(game_dir, song.music_name)
-        cover = extract_cover(game_dir, song.album_number, song.cover_name)
+        music = extract_music(game_dir, song)
+        cover = extract_cover(game_dir, song)
         embed_metadata(music, cover, song)
         if album_dirs:
             os.makedirs(os.path.join(output_dir, album_dirname), exist_ok=True)
