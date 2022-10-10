@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "musedash-ripper"
-version = "1.0.0"
+version = "1.1.0"
 description = "Tool for ripping the Muse Dash soundtrack."
 readme = "README.md"
 authors = ["Hayden Lau"]
@@ -12,16 +12,16 @@ classifiers = [
 repository = "https://github.com/lauhayden/musedash-ripper"
 
 [tool.poetry.dependencies]
-python = "^3.8"
-json5 = "^0.9.5"
-mutagen = "^1.45.1"
-Pillow = "^8.2.0"
+python = "^3.9"
+json5 = "^0.9.10"
+mutagen = "^1.46.0"
+Pillow = "^9.2.0"
 UnityPy = "^1.9.16"
 # depend on patched python-fsb5
 fsb5 = { git = "https://github.com/lauhayden/python-fsb5.git" }
 
 [tool.poetry.dev-dependencies]
-black = "^21.5b1"
+black = "^22.10.0"
 pyoxidizer = "^0.16.2"
 
 [tool.poetry.scripts]
