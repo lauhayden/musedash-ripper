@@ -35,7 +35,7 @@ A simple GUI program to rip the Muse Dash soundtrack. Only supports Windows.
 
 ## Building
 
-1. Build `libogg.dll` and `libvorbis.dll` and place them in the root of the repository
+1. Build `libogg.dll` and `libvorbis.dll` and place them in the root of the repository. See [this blog post](https://deltaepsilon.ca/posts/compiling-libogg-libvorbis-for-dummies/) for detailed instructions.
 2. (Optional) Download [UPX](https://upx.github.io/) and extract to `/upx`
 3. Download and install Poetry
 4. Run `poetry install` to install dependencies and package
