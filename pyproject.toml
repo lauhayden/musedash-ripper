@@ -12,7 +12,7 @@ classifiers = [
 repository = "https://github.com/lauhayden/musedash-ripper"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.12"
 json5 = "^0.9.10"
 mutagen = "^1.46.0"
 Pillow = "^9.2.0"
@@ -22,7 +22,7 @@ fsb5 = { git = "https://github.com/lauhayden/python-fsb5.git" }
 
 [tool.poetry.dev-dependencies]
 black = "^22.10.0"
-pyoxidizer = "^0.16.2"
+pyinstaller "^5.5"
 
 [tool.poetry.scripts]
 musedash-ripper = "musedash_ripper.gui:run"
