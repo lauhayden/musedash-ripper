@@ -6,7 +6,8 @@ readme = "README.md"
 authors = ["Hayden Lau"]
 license = "MIT"
 classifiers = [
-    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Games/Entertainment",
     "Topic :: Multimedia :: Sound/Audio"
 ]
 repository = "https://github.com/lauhayden/musedash-ripper"
