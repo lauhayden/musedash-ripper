@@ -123,6 +123,7 @@ def parse_config(game_dir, language, progress):
         prefix = "config_" + l_suffix.lower() + "_assets_albums_" + l_suffix.lower() + "_"
         l_albums_path = find_with_prefix(datas_path, prefix)
         l_albums_json = load_json(l_albums_path, "albums_" + l_suffix)
+        assert len(albums_json) == len(l_albums_json)
     else:
         l_albums_json = [{}] * len(albums_json)
 
@@ -154,6 +155,7 @@ def parse_config(game_dir, language, progress):
             )
             l_entry_path = find_with_prefix(datas_path, prefix)
             l_entry_json = load_json(l_entry_path, album_entry["jsonName"] + "_" + l_suffix)
+            assert len(entry_json) == len(l_entry_json)
         else:
             l_entry_json = [{}] * len(entry_json)
 
