@@ -1,7 +1,6 @@
 build
 dist
 output
-upx
 __pycache__
 .venv
 .vscode
