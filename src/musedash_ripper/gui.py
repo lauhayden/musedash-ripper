@@ -13,6 +13,7 @@ from musedash_ripper import core
 logger = logging.getLogger(__name__)
 
 
+# we cannot control how many ancestors are in the tkinter library
 class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
     """Main application window"""
 
@@ -119,7 +120,7 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
             self.od_entry.delete(0, "end")
             self.od_entry.insert(0, outdir.replace("/", "\\"))
 
-    def copy_log(self, event=None):
+    def copy_log(self, _event=None):
         """Copy the entire log to clipboard"""
         self.clipboard_clear()
         self.clipboard_append(self.log.get("sel.first", "sel.last"))
@@ -154,7 +155,8 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
                 self.progress_var.set,
                 self.close_event,
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
+            # we catch and log any exception in the core ripping logic
             logger.exception("Exception in rip thread")
 
         self.rip_thread = None
@@ -200,7 +202,8 @@ class ScrolledTextHandler(logging.Handler):
             self.widget["state"] = "disabled"
             if not keep_position:
                 self.widget.yview_moveto(1.0)
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
+            # catching Exception is standard in handlers' emit()
             self.handleError(record)
 
 
