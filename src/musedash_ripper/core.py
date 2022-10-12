@@ -28,7 +28,7 @@ DATAS_DIR: str = os.path.join("MuseDash_Data", "StreamingAssets", "aa", "Standal
 ILLEGAL_FILENAME_CHARS: str = '<>:"/\\|?*'
 
 # default to Steam install location
-DEFAULT_GAME_DIR: str = "C:\Program Files (x86)\Steam\steamapps\common\Muse Dash"
+DEFAULT_GAME_DIR: str = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Muse Dash"
 # default output folder is next to our .EXE
 DEFAULT_OUT_DIR: str = os.path.join(os.getcwd(), "muse_dash_soundtrack")
 
@@ -210,10 +210,10 @@ def extract_music(game_dir: str, song: Song) -> io.BytesIO:
         data = find_asset(env, "AudioClip", song.music_name)
 
         # use python-fsb5 to rebuild the Ogg Vorbis file from FSB5 compressed
-        af = fsb5.FSB5(data.m_AudioData)
+        fsb = fsb5.FSB5(data.m_AudioData)
         # there should only be one track
-        assert len(af.samples) == 1
-        return io.BytesIO(af.rebuild_sample(af.samples[0]).tobytes())
+        assert len(fsb.samples) == 1
+        return io.BytesIO(fsb.rebuild_sample(fsb.samples[0]).tobytes())
 
 
 def extract_cover(game_dir: str, song: Song) -> Image:

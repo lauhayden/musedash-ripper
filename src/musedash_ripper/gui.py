@@ -4,16 +4,18 @@ import logging
 import threading
 
 import tkinter as tk
-import tkinter.ttk as ttk
-import tkinter.filedialog as filedialog
-import tkinter.scrolledtext as scrolledtext
+from tkinter import ttk
+from tkinter import filedialog
+from tkinter import scrolledtext
 
 from musedash_ripper import core
 
 logger = logging.getLogger(__name__)
 
 
-class Application(ttk.Frame):
+class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
+    """Main application window"""
+
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
@@ -26,9 +28,13 @@ class Application(ttk.Frame):
         self.close_event = threading.Event()
 
     def create_widgets(self):
+        """Create all widgets in the main window"""
         self.main_label = ttk.Label(
             self,
-            text="Select the folder MuseDash.exe is located in, then choose where to put the exported files.",
+            text=(
+                "Select the folder MuseDash.exe is located in, "
+                "then choose where to put the exported files."
+            ),
         )
         self.main_label.pack(pady="0.2c")
 
@@ -90,7 +96,7 @@ class Application(ttk.Frame):
 
         self.log = scrolledtext.ScrolledText(self, height=10, state="disabled")
         # TODO: use keybinds to disable cursor, instead of toggling state?
-        # see https://stackoverflow.com/questions/3842155/is-there-a-way-to-make-the-tkinter-text-widget-read-only
+        # see https://stackoverflow.com/questions/3842155/is-there-a-way-to-make-the-tkinter-text-widget-read-only  pylint: disable=line-too-long
         self.log.bind("<Control-c>", self.copy_log)
         self.log.pack(expand="y", fill="both")
 
@@ -98,6 +104,7 @@ class Application(ttk.Frame):
         self.start.pack(side="bottom", pady="0.1c")
 
     def set_gamedir(self):
+        """Open a file dialog to browse to the Muse Dash game directory"""
         gamedir = filedialog.askdirectory(
             parent=self, initialdir=self.gd_entry.get(), mustexist=True
         )
@@ -106,16 +113,19 @@ class Application(ttk.Frame):
             self.gd_entry.insert(0, gamedir.replace("/", "\\"))
 
     def set_outdir(self):
+        """Open a file dialog to browse to an output directory"""
         outdir = filedialog.askdirectory(parent=self, initialdir=self.od_entry.get())
         if outdir:
             self.od_entry.delete(0, "end")
             self.od_entry.insert(0, outdir.replace("/", "\\"))
 
     def copy_log(self, event=None):
+        """Copy the entire log to clipboard"""
         self.clipboard_clear()
         self.clipboard_append(self.log.get("sel.first", "sel.last"))
 
     def start_rip(self):
+        """Start the ripping process on another thread"""
         self.start["state"] = "disabled"  # prevent multiple presses
 
         # clear log
@@ -128,6 +138,7 @@ class Application(ttk.Frame):
         self.rip_thread.start()
 
     def rip(self):
+        """Worker function for the ripping thread"""
         self.start["state"] = "disabled"
 
         # TODO: more user-friendly error messages (no stack trace) when user input is wrong
@@ -150,6 +161,7 @@ class Application(ttk.Frame):
         self.start["state"] = "normal"
 
     def close(self, chained=False):
+        """Hook for X button, to exit gracefully"""
         if self.rip_thread is not None and self.rip_thread.is_alive():
             # ripping is currently in progress
             if not self.close_event.is_set():
@@ -167,6 +179,8 @@ class Application(ttk.Frame):
 
 
 class ScrolledTextHandler(logging.Handler):
+    """Log handler that emits into a scrolledtextwidget"""
+
     def __init__(self, widget):
         super().__init__()
         self.widget = widget
@@ -174,11 +188,8 @@ class ScrolledTextHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            if self.widget.yview()[1] != 1.0:
-                # widget has been scrolled up
-                keep_position = True
-            else:
-                keep_position = False
+            # true if the widget has been scrolled up
+            keep_position = self.widget.yview()[1] != 1.0
             self.widget["state"] = "normal"
             msg = self.format(record)
             if self.is_empty:
@@ -194,6 +205,7 @@ class ScrolledTextHandler(logging.Handler):
 
 
 def run():
+    """Main entry point of the GUI application"""
     root = tk.Tk()
     app = Application(master=root)
 
