@@ -24,6 +24,7 @@ fsb5 = { git = "https://github.com/lauhayden/python-fsb5.git" }
 [tool.poetry.dev-dependencies]
 black = "^22.10.0"
 pyinstaller = "^5.5"
+pylint = "^2.15.4"
 
 [tool.poetry.scripts]
 musedash-ripper = "musedash_ripper.gui:run"
