@@ -44,6 +44,14 @@ LANGUAGES: Dict[Optional[str], Optional[str]] = {
 }
 
 
+class UserError(Exception):
+    """Exception for when the program was used incorrectly by the user"""
+
+    def __init__(self, message):
+        super().__init__()
+        self.message = message
+
+
 @dataclasses.dataclass
 class Song:
     """Dataclass to store song metadata"""
@@ -291,13 +299,15 @@ def rip(
     save_songs_csv: bool,
     progress: Callable[[float], None],
     stop_event: Event,
-) -> None:
+) -> bool:
     """Rip the soundtrack from an installation of Muse Dash"""
     progress(0)
 
     # validate input
     if not os.path.exists(os.path.join(game_dir, "MuseDash.exe")):
-        raise ValueError("Could not find MuseDash.exe in game folder")
+        raise UserError(
+            "Could not find MuseDash.exe in game folder. Did you select the right folder?"
+        )
 
     logger.info("Starting rip...")
     logger.info("game_dir: %s", game_dir)
@@ -323,7 +333,7 @@ def rip(
     num_albums = len(set(song.album_number for song in songs))
     logger.info("%s songs in %s albums found.", len(songs), num_albums)
     if stop_event.is_set():
-        return
+        return False
 
     for song_num, song in enumerate(songs, start=1):
         logger.info("Exporting song: %s by %s", song.title, song.artist)
@@ -351,6 +361,7 @@ def rip(
                 cover.save(cover_file, format="png")
         progress(4 + 96 * song_num / len(songs))
         if stop_event.is_set():
-            return
+            return False
 
     logger.info("Done!")
+    return True

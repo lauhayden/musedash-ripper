@@ -6,6 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
+from tkinter import messagebox
 from tkinter import scrolledtext
 
 from musedash_ripper import core
@@ -142,10 +143,8 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         """Worker function for the ripping thread"""
         self.start["state"] = "disabled"
 
-        # TODO: more user-friendly error messages (no stack trace) when user input is wrong
-
         try:
-            core.rip(
+            rip_done = core.rip(
                 self.gd_entry.get(),
                 self.od_entry.get(),
                 self.language_var.get(),
@@ -155,9 +154,23 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
                 self.progress_var.set,
                 self.close_event,
             )
+            if rip_done:
+                # don't show done message if user is exiting the application
+                messagebox.showinfo(title="Done", message="Ripping complete! Enjoy your music!")
+        except core.UserError as err:
+            logger.error("Error: %s", err.message)
+            messagebox.showerror(title="Error", message=err.message)
         except Exception:  # pylint: disable=broad-except
             # we catch and log any exception in the core ripping logic
             logger.exception("Exception in rip thread")
+            messagebox.showerror(
+                title="Error",
+                message=(
+                    "An error occurred while ripping. "
+                    "Please submit an issue at https://github.com/lauhayden/musedash-ripper/issues "
+                    "with the log contents."
+                ),
+            )
 
         self.rip_thread = None
         self.start["state"] = "normal"
