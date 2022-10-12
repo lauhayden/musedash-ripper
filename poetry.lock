@@ -395,8 +395,8 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 
 [metadata]
 lock-version = "1.1"
-python-versions = ">=3.9,<3.12"
-content-hash = "6b110214d250567e08fc5e7a7ea72cacb24056ba08bf90ba9b1fd0d8888055bf"
+python-versions = ">=3.9, <3.12" # <3.12 required by pyinstaller
+content-hash = "a61866d92777bb47c7bc063daa1da72bbb07ddc45710c05ef04ed90f16764327"
 
 [metadata.files]
 altgraph = []

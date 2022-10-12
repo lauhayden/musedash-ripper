@@ -34,7 +34,9 @@ A simple GUI program to rip the Muse Dash soundtrack. Only supports Windows.
 * Packaging: [Poetry](https://python-poetry.org/)
 * Freezing: [PyInstaller](https://pyinstaller.org/en/stable/)
 * Formatter: [Black](https://github.com/psf/black)
+	* Run using `poetry run black src`
 * Linter: [Pylint](https://pylint.pycqa.org/en/latest/)
+	* Run using `poetry run pylint src`
 * Testing: what tests? We don't have no tests.
 
 ## Building
