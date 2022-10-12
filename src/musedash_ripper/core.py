@@ -1,37 +1,40 @@
 """Core ripping functionality"""
 
 import base64
-import contextlib
 import csv
 import dataclasses
 import glob
 import io
 import logging
 import os
-from typing import Optional
+from threading import Event
+from typing import BinaryIO, Callable, Dict, List, Optional
 
 import fsb5
 
-# We use JSON5 parsing because the albums JSON asset has trailing commas
+# We use JSON5 parsing because the albums JSON assets have trailing commas
 import json5
 from mutagen.oggvorbis import OggVorbis
 from mutagen.flac import Picture
-from PIL import ImageOps
-import UnityPy
+from PIL import Image
+import UnityPy.classes
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # TODO: use pathlib
-DATAS_DIR = os.path.join("MuseDash_Data", "StreamingAssets", "aa", "StandaloneWindows64")
+DATAS_DIR: str = os.path.join("MuseDash_Data", "StreamingAssets", "aa", "StandaloneWindows64")
 
 # Remove these characters before writing filename
-ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*'
+ILLEGAL_FILENAME_CHARS: str = '<>:"/\\|?*'
 
-DEFAULT_GAME_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Muse Dash"
-DEFAULT_OUT_DIR = os.path.join(os.getcwd(), "output")
+# default to Steam install location
+DEFAULT_GAME_DIR: str = "C:\Program Files (x86)\Steam\steamapps\common\Muse Dash"
+# default output folder is next to our .EXE
+DEFAULT_OUT_DIR: str = os.path.join(os.getcwd(), "muse_dash_soundtrack")
 
 
-LANGUAGES = {
+# abbreviations for languages used by Muse Dash's assets
+LANGUAGES: Dict[Optional[str], Optional[str]] = {
     None: None,
     "Chinese Simplified": "ChineseS",
     "Chinese Traditional": "ChineseT",
@@ -43,6 +46,8 @@ LANGUAGES = {
 
 @dataclasses.dataclass
 class Song:
+    """Dataclass to store song metadata"""
+
     title: str  # human-friendly title
     artist: str  # human-friendly artist name
     album_number: int  # internal album number (1-indexed)
@@ -52,10 +57,11 @@ class Song:
     asset_name: str  # internal code-friendly song name used
     music_name: str  # music data asset name
     cover_name: str  # cover data asset name
-    genre: Optional[str] = None
+    genre: Optional[str] = None  # optional music genre
 
 
-def fix_songs(songs):
+def fix_songs(songs: List[Song]) -> None:
+    """Fix inconsistencies and typos in the song metadata"""
     for song in songs:
         # chaos_glitch's asset and cover names are mangled
         if song.cover_name == "chaos_glitch_cover":
@@ -75,7 +81,8 @@ def fix_songs(songs):
             song.cover_name = "qu_jianhai_de_rizi_cover"
 
 
-def normalize_songs(songs):
+def normalize_songs(songs: List[Song]) -> None:
+    """Apply global modifications to all the songs"""
     for song in songs:
         # prefix album name
         song.album_name = "Muse Dash - " + song.album_name
@@ -84,7 +91,10 @@ def normalize_songs(songs):
         song.genre = "Video Games"
 
 
-def find_asset(env, object_type, name, raise_on_not_found=True):
+def find_asset(
+    env: UnityPy.Environment, object_type: str, name: str, raise_on_not_found: bool = True
+) -> UnityPy.classes.NamedObject:
+    """Find a specific asset in a bundle"""
     for obj in env.objects:
         if obj.type.name != object_type:
             continue
@@ -96,21 +106,24 @@ def find_asset(env, object_type, name, raise_on_not_found=True):
     return None
 
 
-def find_with_prefix(dir_path, prefix):
+def find_with_prefix(dir_path: str, prefix: str) -> str:
+    """Find a file with a prefix in a folder"""
     results = glob.glob(os.path.join(dir_path, prefix) + "*")
     if len(results) != 1:
         raise FileNotFoundError(f"Could not find unique bundle file with prefix '{prefix}'")
     return results[0]
 
 
-def load_json(bundle_path, asset_name):
+def load_json(bundle_path: str, asset_name: str) -> List:
+    """Extract and parse JSON from a TextAsset in a bundle"""
     with open(bundle_path, "rb") as bundle_file:
         env = UnityPy.load(bundle_file)
         data = find_asset(env, "TextAsset", asset_name)
         return json5.loads(data.text)
 
 
-def parse_config(game_dir, language, progress):
+def parse_config(game_dir: str, language: str, progress: Callable[[float], None]) -> List[Song]:
+    """Parse the game configuration JSONs to create a list of Songs"""
     l_suffix = LANGUAGES.get(language)
     datas_path = os.path.join(game_dir, DATAS_DIR)
 
@@ -187,7 +200,8 @@ def parse_config(game_dir, language, progress):
     return sorted(songs, key=lambda song: (song.album_number, song.track_number))
 
 
-def extract_music(game_dir, song):
+def extract_music(game_dir: str, song: Song) -> io.BytesIO:
+    """Find and extract the music file from game assets given a Song"""
     datas_path = os.path.join(game_dir, DATAS_DIR)
     prefix = "music_assets_" + song.music_name + "_"
     music_path = find_with_prefix(datas_path, prefix)
@@ -202,7 +216,8 @@ def extract_music(game_dir, song):
         return io.BytesIO(af.rebuild_sample(af.samples[0]).tobytes())
 
 
-def extract_cover(game_dir, song):
+def extract_cover(game_dir: str, song: Song) -> Image:
+    """Find and extract a cover image from game assets given a Song"""
     datas_path = os.path.join(game_dir, DATAS_DIR)
     prefix = "song_" + song.asset_name + "_assets_all_"
     assets_path = find_with_prefix(datas_path, prefix)
@@ -211,7 +226,7 @@ def extract_cover(game_dir, song):
         return find_asset(env, "Texture2D", song.cover_name).image
 
 
-def embed_metadata(music_file, cover_image, song):
+def embed_metadata(music_file: io.BytesIO, cover_image: Image, song: Song) -> None:
     """Add metadata to extracted OGG files.
 
     For details on the METADATA_BLOCK_PICTURE struct format, see
@@ -246,13 +261,15 @@ def embed_metadata(music_file, cover_image, song):
     audio.save(music_file)
 
 
-def normalize_path_segment(path):
+def normalize_path_segment(path: str) -> str:
+    """Remove illegal characters from a path"""
     for char in ILLEGAL_FILENAME_CHARS:
         path = path.replace(char, "_")
     return path
 
 
-def songs_to_csv(songs, csv_file):
+def songs_to_csv(songs: List[Song], csv_file: BinaryIO) -> None:
+    """Dump a list of Songs to a CSV file"""
     # write a byte order mark so Excel recognizes CSV as UTF-8
     csv_file.write("\ufeff")
     # don't include empty genre in CSV file
@@ -266,15 +283,16 @@ def songs_to_csv(songs, csv_file):
 
 
 def rip(
-    game_dir,
-    output_dir,
-    language,
-    album_dirs,
-    save_covers,
-    save_songs_csv,
-    progress,
-    stop_event,
-):
+    game_dir: str,
+    output_dir: str,
+    language: str,
+    album_dirs: bool,
+    save_covers: bool,
+    save_songs_csv: bool,
+    progress: Callable[[float], None],
+    stop_event: Event,
+) -> None:
+    """Rip the soundtrack from an installation of Muse Dash"""
     progress(0)
 
     # validate input

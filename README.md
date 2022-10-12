@@ -28,6 +28,7 @@ A simple GUI program to rip the Muse Dash soundtrack. Only supports Windows.
 * We use [python-fsb5](https://github.com/hearthsim/python-fsb5) instead of `UnityPy`'s built-in `AudioClip` extraction method in order to get the original Ogg Vorbis-encoded sound files.
 * [python-fsb5](https://github.com/hearthsim/python-fsb5) currently has a relative import bug. Fixed in [my fork](https://github.com/HearthSim/python-fsb5/pull/17).
 * [python-fsb5](https://github.com/hearthsim/python-fsb5) requires `libogg` and `libvorbis` to unpack Ogg Vorbis sound files.
+
 ## Tools used:
 
 * Packaging: [Poetry](https://python-poetry.org/)
