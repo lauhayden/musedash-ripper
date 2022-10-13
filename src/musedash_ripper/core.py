@@ -2,6 +2,7 @@
 
 import base64
 import csv
+import concurrent.futures
 import dataclasses
 import glob
 import io
@@ -289,6 +290,30 @@ def songs_to_csv(songs: List[Song], csv_file: BinaryIO) -> None:
         row.pop("genre")
         writer.writerow(row)
 
+def export_song(game_dir: str, output_dir: str, album_dirs: bool, save_covers: bool, song: Song):
+    album_dirname = normalize_path_segment(song.album_name)
+    song_filestem = normalize_path_segment(song.title)
+    music = extract_music(game_dir, song)
+    cover = extract_cover(game_dir, song)
+    embed_metadata(music, cover, song)
+    if album_dirs:
+        os.makedirs(os.path.join(output_dir, album_dirname), exist_ok=True)
+        music_filename = os.path.join(output_dir, album_dirname, song_filestem + ".ogg")
+    else:
+        music_filename = os.path.join(output_dir, song_filestem + ".ogg")
+    with open(music_filename, "wb") as music_file:
+        music_file.write(music.getvalue())
+    if save_covers:
+        if album_dirs:
+            os.makedirs(os.path.join(output_dir, "covers", album_dirname), exist_ok=True)
+            cover_filename = os.path.join(
+                output_dir, "covers", album_dirname, song_filestem + ".png"
+            )
+        else:
+            cover_filename = os.path.join(output_dir, "covers", song_filestem + ".png")
+        with open(cover_filename, "wb") as cover_file:
+            cover.save(cover_file, format="png")
+    return song
 
 def rip(
     game_dir: str,
@@ -335,33 +360,24 @@ def rip(
     if stop_event.is_set():
         return False
 
-    for song_num, song in enumerate(songs, start=1):
-        logger.info("Exporting song: %s by %s", song.title, song.artist)
-        album_dirname = normalize_path_segment(song.album_name)
-        song_filestem = normalize_path_segment(song.title)
-        music = extract_music(game_dir, song)
-        cover = extract_cover(game_dir, song)
-        embed_metadata(music, cover, song)
-        if album_dirs:
-            os.makedirs(os.path.join(output_dir, album_dirname), exist_ok=True)
-            music_filename = os.path.join(output_dir, album_dirname, song_filestem + ".ogg")
-        else:
-            music_filename = os.path.join(output_dir, song_filestem + ".ogg")
-        with open(music_filename, "wb") as music_file:
-            music_file.write(music.getvalue())
-        if save_covers:
-            if album_dirs:
-                os.makedirs(os.path.join(output_dir, "covers", album_dirname), exist_ok=True)
-                cover_filename = os.path.join(
-                    output_dir, "covers", album_dirname, song_filestem + ".png"
-                )
-            else:
-                cover_filename = os.path.join(output_dir, "covers", song_filestem + ".png")
-            with open(cover_filename, "wb") as cover_file:
-                cover.save(cover_file, format="png")
-        progress(4 + 96 * song_num / len(songs))
-        if stop_event.is_set():
-            return False
+    logger.info("Exporting songs...")
+    executor = concurrent.futures.ProcessPoolExecutor()
+    try:
+        results = executor.map(
+            export_song,
+            [game_dir] * len(songs),
+            [output_dir] * len(songs),
+            [album_dirs] * len(songs),
+            [save_covers] * len(songs),
+            songs
+       )
+        for song_num, done_song in enumerate(results, start=1):
+            logger.info("Exported song: %s by %s", done_song.title, done_song.artist)
+            progress(4 + 96 * song_num / len(songs))
+            if stop_event.is_set():
+                return False
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
 
     logger.info("Done!")
     return True
