@@ -9,7 +9,7 @@ import io
 import logging
 import os
 from threading import Event
-from typing import BinaryIO, Callable, Dict, List, Optional
+from typing import BinaryIO, Callable, Dict, Iterable, List, Optional, Sequence
 
 import fsb5
 
@@ -129,6 +129,39 @@ def load_json(bundle_path: str, asset_name: str) -> List:
         env = UnityPy.load(bundle_file)
         data = find_asset(env, "TextAsset", asset_name)
         return json5.loads(data.text)
+
+
+def parallel_execute(
+    executor: concurrent.futures.ProcessPoolExecutor,
+    stop_event: Event,
+    func: Callable,
+    args: Sequence,
+    iterable: Iterable,
+    done_callback: Callable,
+) -> None:
+    """Use a ProcessPoolExecutor to run func in parallel with error handling"""
+    not_done = set()
+    for item in iterable:
+        not_done.add(executor.submit(func, *args, item))
+    error = None
+    all_done = True
+    while not_done:
+        done, not_done = concurrent.futures.wait(
+            not_done, return_when=concurrent.futures.FIRST_COMPLETED
+        )
+        for future in done:
+            try:
+                done_callback(future.result())
+            except concurrent.futures.CancelledError:
+                all_done = False
+            except Exception as err:  # pylint: disable=broad-except
+                error = err
+        if stop_event.is_set() or error:
+            for future in not_done:
+                future.cancel()
+    if error:
+        raise error
+    return all_done
 
 
 def parse_config(game_dir: str, language: str, progress: Callable[[float], None]) -> List[Song]:
@@ -290,7 +323,9 @@ def songs_to_csv(songs: List[Song], csv_file: BinaryIO) -> None:
         row.pop("genre")
         writer.writerow(row)
 
+
 def export_song(game_dir: str, output_dir: str, album_dirs: bool, save_covers: bool, song: Song):
+    """Rip a single song"""
     album_dirname = normalize_path_segment(song.album_name)
     song_filestem = normalize_path_segment(song.title)
     music = extract_music(game_dir, song)
@@ -313,7 +348,9 @@ def export_song(game_dir: str, output_dir: str, album_dirs: bool, save_covers: b
             cover_filename = os.path.join(output_dir, "covers", song_filestem + ".png")
         with open(cover_filename, "wb") as cover_file:
             cover.save(cover_file, format="png")
-    return song
+    # return f"Exported song: {song.title} by {song.artist}"
+    return song.album_number * 100 + song.track_number
+
 
 def rip(
     game_dir: str,
@@ -360,24 +397,26 @@ def rip(
     if stop_event.is_set():
         return False
 
+    done_counter = 0
+
+    def log_exported(message):
+        """Callback for parallel exporting of songs"""
+        nonlocal done_counter
+        done_counter += 1
+        progress(4 + 96 * done_counter / len(songs))
+        logger.info(message)  # commenting this out prevents it from hanging on early exit?
+
     logger.info("Exporting songs...")
-    executor = concurrent.futures.ProcessPoolExecutor()
-    try:
-        results = executor.map(
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        if not parallel_execute(
+            executor,
+            stop_event,
             export_song,
-            [game_dir] * len(songs),
-            [output_dir] * len(songs),
-            [album_dirs] * len(songs),
-            [save_covers] * len(songs),
-            songs
-       )
-        for song_num, done_song in enumerate(results, start=1):
-            logger.info("Exported song: %s by %s", done_song.title, done_song.artist)
-            progress(4 + 96 * song_num / len(songs))
-            if stop_event.is_set():
-                return False
-    finally:
-        executor.shutdown(wait=True, cancel_futures=True)
+            (game_dir, output_dir, album_dirs, save_covers),
+            songs,
+            log_exported,
+        ):
+            return False
 
     logger.info("Done!")
     return True
