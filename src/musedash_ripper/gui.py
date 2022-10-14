@@ -1,6 +1,7 @@
 """Tkinter-based GUI"""
 
 import logging
+import queue
 import threading
 
 import tkinter as tk
@@ -25,9 +26,15 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         self.pack(expand="y", fill="both", padx="0.2c", pady="0.2c", ipadx="0.1c", ipady="0.1c")
         self.create_widgets()
 
-        self.log_empty = True
         self.rip_thread = None
         self.close_event = threading.Event()
+
+        self.done_messagebox = None
+        self.bind("<<done_rip>>", self.done_rip)
+
+        self.log_empty = True
+        self.log_queue = queue.SimpleQueue()
+        self.bind("<<emit_log>>", self.emit_log)
 
     def create_widgets(self):
         """Create all widgets in the main window"""
@@ -131,18 +138,22 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         self.start["state"] = "disabled"  # prevent multiple presses
 
         # clear log
-        # TODO: put this in the handler and guard with mutex
         self.log["state"] = "normal"
         self.log.delete(1.0, "end")
         self.log["state"] = "disabled"
+        self.log_empty = True
+
+        self.start["state"] = "disabled"
 
         self.rip_thread = threading.Thread(target=self.rip, name="rip_thread")
         self.rip_thread.start()
 
     def rip(self):
-        """Worker function for the ripping thread"""
-        self.start["state"] = "disabled"
+        """Worker function for the ripping thread
 
+        Don't directly call Tkinter stuff in here, instead generate a event with event_generate
+        and handle gui updates on the main thread
+        """
         try:
             rip_done = core.rip(
                 self.gd_entry.get(),
@@ -156,24 +167,47 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
             )
             if rip_done:
                 # don't show done message if user is exiting the application
-                messagebox.showinfo(title="Done", message="Ripping complete! Enjoy your music!")
+                self.done_messagebox = ("Done", "Ripping complete! Enjoy your music!")
         except core.UserError as err:
             logger.error("Error: %s", err.message)
-            messagebox.showerror(title="Error", message=err.message)
+            self.done_messagebox = ("Error", err.message)
         except Exception:  # pylint: disable=broad-except
             # we catch and log any exception in the core ripping logic
             logger.exception("Exception in rip thread")
-            messagebox.showerror(
-                title="Error",
-                message=(
+            self.done_messagebox = (
+                "Error",
+                (
                     "An error occurred while ripping. "
                     "Please submit an issue at https://github.com/lauhayden/musedash-ripper/issues "
                     "with the log contents."
                 ),
             )
+        self.event_generate("<<done_rip>>")
 
+    def done_rip(self, _event=None):
+        """Handler for <<done_rip>> event, finishing up the ripping process"""
         self.rip_thread = None
         self.start["state"] = "normal"
+        if self.done_messagebox:
+            if self.done_messagebox[0] == "Error":
+                messagebox.showerror(*self.done_messagebox)
+            else:
+                messagebox.showinfo(*self.done_messagebox)
+
+    def emit_log(self, _event=None):
+        """Handler for <<emit_log>> event, emitting a single log message"""
+        # true if the widget has been scrolled up
+        keep_position = self.log.yview()[1] != 1.0
+        self.log["state"] = "normal"
+        msg = self.log_queue.get()
+        if self.log_empty:
+            self.log_empty = False
+        else:
+            msg = "\n" + msg
+        self.log.insert("end", msg)
+        self.log["state"] = "disabled"
+        if not keep_position:
+            self.log.yview_moveto(1.0)
 
     def close(self, chained=False):
         """Hook for X button, to exit gracefully"""
@@ -193,28 +227,29 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
             self.master.destroy()
 
 
-class ScrolledTextHandler(logging.Handler):
-    """Log handler that emits into a scrolledtextwidget"""
+class TkinterEventHandler(logging.Handler):
+    """Log handler that emits into a scrolledtextwidget
 
-    def __init__(self, widget):
+    Shoves formatted records into a queue and fire events.
+    """
+
+    def __init__(self, app, record_q):
         super().__init__()
-        self.widget = widget
-        self.is_empty = True
+        self.app = app
+        self.record_q = record_q
+
+    def handle(self, record):
+        retval = super().handle(record)
+        if retval:
+            # generating an event requires some sort of lock that the main loop holds while
+            # processing events, so  we generate the event after releasing the handler's IO lock
+            # or else we will deadlock if the main thread and the rip thread both want to log
+            self.app.event_generate("<<emit_log>>")
+        return retval
 
     def emit(self, record):
         try:
-            # true if the widget has been scrolled up
-            keep_position = self.widget.yview()[1] != 1.0
-            self.widget["state"] = "normal"
-            msg = self.format(record)
-            if self.is_empty:
-                self.is_empty = False
-            else:
-                msg = "\n" + msg
-            self.widget.insert("end", msg)
-            self.widget["state"] = "disabled"
-            if not keep_position:
-                self.widget.yview_moveto(1.0)
+            self.record_q.put(self.format(record))
         except Exception:  # pylint: disable=broad-except
             # catching Exception is standard in handlers' emit()
             self.handleError(record)
@@ -225,7 +260,7 @@ def run():
     root = tk.Tk()
     app = Application(master=root)
 
-    sthandler = ScrolledTextHandler(app.log)
+    sthandler = TkinterEventHandler(app, app.log_queue)
     formatter = logging.Formatter("%(message)s")
     sthandler.setFormatter(formatter)
     root_logger = logging.getLogger("")

@@ -348,8 +348,7 @@ def export_song(game_dir: str, output_dir: str, album_dirs: bool, save_covers: b
             cover_filename = os.path.join(output_dir, "covers", song_filestem + ".png")
         with open(cover_filename, "wb") as cover_file:
             cover.save(cover_file, format="png")
-    # return f"Exported song: {song.title} by {song.artist}"
-    return song.album_number * 100 + song.track_number
+    return f"Exported song: {song.title} by {song.artist}"
 
 
 def rip(
@@ -404,7 +403,7 @@ def rip(
         nonlocal done_counter
         done_counter += 1
         progress(4 + 96 * done_counter / len(songs))
-        logger.info(message)  # commenting this out prevents it from hanging on early exit?
+        logger.info(message)
 
     logger.info("Exporting songs...")
     with concurrent.futures.ProcessPoolExecutor() as executor:
