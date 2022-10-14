@@ -33,7 +33,6 @@ DEFAULT_GAME_DIR: str = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Muse
 # default output folder is next to our .EXE
 DEFAULT_OUT_DIR: str = os.path.join(os.getcwd(), "muse_dash_soundtrack")
 
-
 # abbreviations for languages used by Muse Dash's assets
 LANGUAGES: Dict[Optional[str], Optional[str]] = {
     None: None,
@@ -43,6 +42,10 @@ LANGUAGES: Dict[Optional[str], Optional[str]] = {
     "Japanese": "Japanese",
     "Korean": "Korean",
 }
+
+# how much percent of the overall ripping time is config parsing?
+# this is rough and for the progress bar only. Depends on number of cores and such
+CONFIG_PARSE_PROGRESS: float = 20
 
 
 class UserError(Exception):
@@ -164,7 +167,9 @@ def parallel_execute(
     return all_done
 
 
-def parse_config(game_dir: str, language: str, progress: Callable[[float], None]) -> List[Song]:
+def parse_config(
+    game_dir: str, language: Optional[str], progress: Callable[[float], None]
+) -> List[Song]:
     """Parse the game configuration JSONs to create a list of Songs"""
     l_suffix = LANGUAGES.get(language)
     datas_path = os.path.join(game_dir, DATAS_DIR)
@@ -378,9 +383,10 @@ def rip(
     logger.info("save_songs_csv: %s", save_songs_csv)
 
     os.makedirs(output_dir, exist_ok=True)
-    # parse_config is ~4% of the total time
     logger.info("Parsing game config...")
-    songs = parse_config(game_dir, language, progress=lambda x: progress(x * 4 / 100))
+    songs = parse_config(
+        game_dir, language, progress=lambda x: progress(x * CONFIG_PARSE_PROGRESS / 100)
+    )
     fix_songs(songs)
     if save_songs_csv:
         logger.info("Saving songs.csv...")
@@ -402,7 +408,7 @@ def rip(
         """Callback for parallel exporting of songs"""
         nonlocal done_counter
         done_counter += 1
-        progress(4 + 96 * done_counter / len(songs))
+        progress(CONFIG_PARSE_PROGRESS + (100 - CONFIG_PARSE_PROGRESS) * done_counter / len(songs))
         logger.info(message)
 
     logger.info("Exporting songs...")
