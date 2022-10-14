@@ -1,6 +1,7 @@
 """Tkinter-based GUI"""
 
 import logging
+import multiprocessing
 import queue
 import threading
 
@@ -272,4 +273,5 @@ def run():
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     run()
