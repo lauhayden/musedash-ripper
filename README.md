@@ -37,6 +37,8 @@ A simple GUI program to rip the Muse Dash soundtrack. Only supports Windows.
 	* Run using `poetry run black src`
 * Linter: [Pylint](https://pylint.pycqa.org/en/latest/)
 	* Run using `poetry run pylint src`
+* Type checking: [mypy](https://mypy.readthedocs.io/en/stable/index.html)
+    * Run using `poetry run mypy src`
 * Testing: what tests? We don't have no tests.
 
 ## Building

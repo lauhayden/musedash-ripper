@@ -234,12 +234,12 @@ class TkinterEventHandler(logging.Handler):
     Shoves formatted records into a queue and fire events.
     """
 
-    def __init__(self, app, record_q):
+    def __init__(self, app: Application, record_q: queue.SimpleQueue):
         super().__init__()
         self.app = app
         self.record_q = record_q
 
-    def handle(self, record):
+    def handle(self, record: logging.LogRecord):
         retval = super().handle(record)
         if retval:
             # generating an event requires some sort of lock that the main loop holds while
@@ -248,7 +248,7 @@ class TkinterEventHandler(logging.Handler):
             self.app.event_generate("<<emit_log>>")
         return retval
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             self.record_q.put(self.format(record))
         except Exception:  # pylint: disable=broad-except

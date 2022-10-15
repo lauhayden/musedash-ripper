@@ -9,16 +9,14 @@ import io
 import logging
 import os
 from threading import Event
-from typing import BinaryIO, Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, TextIO
 
-import fsb5
-
-# We use JSON5 parsing because the albums JSON assets have trailing commas
-import json5
+import fsb5  # type: ignore
+import json5  # type: ignore
 from mutagen.oggvorbis import OggVorbis
 from mutagen.flac import Picture
-from PIL import Image
-import UnityPy.classes
+from PIL.Image import Image
+import UnityPy.classes  # type: ignore
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -51,7 +49,7 @@ CONFIG_PARSE_PROGRESS: float = 20
 class UserError(Exception):
     """Exception for when the program was used incorrectly by the user"""
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__()
         self.message = message
 
@@ -131,6 +129,7 @@ def load_json(bundle_path: str, asset_name: str) -> List:
     with open(bundle_path, "rb") as bundle_file:
         env = UnityPy.load(bundle_file)
         data = find_asset(env, "TextAsset", asset_name)
+        # We use JSON5 parsing because the albums JSON assets have trailing commas
         return json5.loads(data.text)
 
 
@@ -141,7 +140,7 @@ def parallel_execute(
     args: Sequence,
     iterable: Iterable,
     done_callback: Callable,
-) -> None:
+) -> bool:
     """Use a ProcessPoolExecutor to run func in parallel with error handling"""
     not_done = set()
     for item in iterable:
@@ -315,7 +314,7 @@ def normalize_path_segment(path: str) -> str:
     return path
 
 
-def songs_to_csv(songs: List[Song], csv_file: BinaryIO) -> None:
+def songs_to_csv(songs: List[Song], csv_file: TextIO) -> None:
     """Dump a list of Songs to a CSV file"""
     # write a byte order mark so Excel recognizes CSV as UTF-8
     csv_file.write("\ufeff")
@@ -404,7 +403,7 @@ def rip(
 
     done_counter = 0
 
-    def log_exported(message):
+    def log_exported(message: str) -> None:
         """Callback for parallel exporting of songs"""
         nonlocal done_counter
         done_counter += 1
