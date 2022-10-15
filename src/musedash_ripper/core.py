@@ -4,10 +4,9 @@ import base64
 import csv
 import concurrent.futures
 import dataclasses
-import glob
 import io
 import logging
-import os
+import pathlib
 import threading
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, TextIO
 
@@ -20,16 +19,17 @@ import UnityPy.classes  # type: ignore
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# TODO: use pathlib
-DATAS_DIR: str = os.path.join("MuseDash_Data", "StreamingAssets", "aa", "StandaloneWindows64")
+DATAS_DIR = pathlib.Path("MuseDash_Data", "StreamingAssets", "aa", "StandaloneWindows64")
 
 # Remove these characters before writing filename
-ILLEGAL_FILENAME_CHARS: str = '<>:"/\\|?*'
+ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*'
 
 # default to Steam install location
-DEFAULT_GAME_DIR: str = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Muse Dash"
+DEFAULT_GAME_DIR = pathlib.Path(
+    "C:/", "Program Files (x86)", "Steam", "steamapps", "common", "Muse Dash"
+)
 # default output folder is next to our .EXE
-DEFAULT_OUT_DIR: str = os.path.join(os.getcwd(), "muse_dash_soundtrack")
+DEFAULT_OUT_DIR = pathlib.Path.cwd() / "muse_dash_soundtrack"
 
 # abbreviations for languages used by Muse Dash's assets
 LANGUAGES: Dict[Optional[str], Optional[str]] = {
@@ -116,17 +116,17 @@ def find_asset(
     return None
 
 
-def find_with_prefix(dir_path: str, prefix: str) -> str:
+def find_with_prefix(dir_path: pathlib.Path, prefix: str) -> pathlib.Path:
     """Find a file with a prefix in a folder"""
-    results = glob.glob(os.path.join(dir_path, prefix) + "*")
+    results = list(dir_path.glob(prefix + "*"))
     if len(results) != 1:
         raise FileNotFoundError(f"Could not find unique bundle file with prefix '{prefix}'")
     return results[0]
 
 
-def load_json(bundle_path: str, asset_name: str) -> List:
+def load_json(bundle_path: pathlib.Path, asset_name: str) -> List:
     """Extract and parse JSON from a TextAsset in a bundle"""
-    with open(bundle_path, "rb") as bundle_file:
+    with bundle_path.open("rb") as bundle_file:
         env = UnityPy.load(bundle_file)
         data = find_asset(env, "TextAsset", asset_name)
         # We use JSON5 parsing because the albums JSON assets have trailing commas
@@ -167,11 +167,11 @@ def parallel_execute(
 
 
 def parse_config(
-    game_dir: str, language: Optional[str], progress: Callable[[float], None]
+    game_dir: pathlib.Path, language: Optional[str], progress: Callable[[float], None]
 ) -> List[Song]:
     """Parse the game configuration JSONs to create a list of Songs"""
     l_suffix = LANGUAGES.get(language)
-    datas_path = os.path.join(game_dir, DATAS_DIR)
+    datas_path = game_dir / DATAS_DIR
 
     # load the "albums" JSON containing info on all albums
     albums_path = find_with_prefix(datas_path, "config_others_assets_albums_")
@@ -246,9 +246,9 @@ def parse_config(
     return sorted(songs, key=lambda song: (song.album_number, song.track_number))
 
 
-def extract_music(game_dir: str, song: Song) -> io.BytesIO:
+def extract_music(game_dir: pathlib.Path, song: Song) -> io.BytesIO:
     """Find and extract the music file from game assets given a Song"""
-    datas_path = os.path.join(game_dir, DATAS_DIR)
+    datas_path = game_dir / DATAS_DIR
     prefix = "music_assets_" + song.music_name + "_"
     music_path = find_with_prefix(datas_path, prefix)
     with open(music_path, "rb") as music_file:
@@ -262,9 +262,9 @@ def extract_music(game_dir: str, song: Song) -> io.BytesIO:
         return io.BytesIO(fsb.rebuild_sample(fsb.samples[0]).tobytes())
 
 
-def extract_cover(game_dir: str, song: Song) -> PIL.Image.Image:
+def extract_cover(game_dir: pathlib.Path, song: Song) -> PIL.Image.Image:
     """Find and extract a cover image from game assets given a Song"""
-    datas_path = os.path.join(game_dir, DATAS_DIR)
+    datas_path = game_dir / DATAS_DIR
     prefix = "song_" + song.asset_name + "_assets_all_"
     assets_path = find_with_prefix(datas_path, prefix)
     with open(assets_path, "rb") as assets_file:
@@ -307,11 +307,11 @@ def embed_metadata(music_file: io.BytesIO, cover_image: PIL.Image.Image, song: S
     audio.save(music_file)
 
 
-def normalize_path_segment(path: str) -> str:
+def normalize_path_segment(segment: str) -> str:
     """Remove illegal characters from a path"""
     for char in ILLEGAL_FILENAME_CHARS:
-        path = path.replace(char, "_")
-    return path
+        segment = segment.replace(char, "_")
+    return segment
 
 
 def songs_to_csv(songs: List[Song], csv_file: TextIO) -> None:
@@ -328,7 +328,13 @@ def songs_to_csv(songs: List[Song], csv_file: TextIO) -> None:
         writer.writerow(row)
 
 
-def export_song(game_dir: str, output_dir: str, album_dirs: bool, save_covers: bool, song: Song):
+def export_song(
+    game_dir: pathlib.Path,
+    output_dir: pathlib.Path,
+    album_dirs: bool,
+    save_covers: bool,
+    song: Song,
+):
     """Rip a single song"""
     album_dirname = normalize_path_segment(song.album_name)
     song_filestem = normalize_path_segment(song.title)
@@ -336,28 +342,26 @@ def export_song(game_dir: str, output_dir: str, album_dirs: bool, save_covers: b
     cover = extract_cover(game_dir, song)
     embed_metadata(music, cover, song)
     if album_dirs:
-        os.makedirs(os.path.join(output_dir, album_dirname), exist_ok=True)
-        music_filename = os.path.join(output_dir, album_dirname, song_filestem + ".ogg")
+        (output_dir / album_dirname).mkdir(parents=True, exist_ok=True)
+        music_filename = output_dir / album_dirname / (song_filestem + ".ogg")
     else:
-        music_filename = os.path.join(output_dir, song_filestem + ".ogg")
-    with open(music_filename, "wb") as music_file:
+        music_filename = output_dir / (song_filestem + ".ogg")
+    with music_filename.open("wb") as music_file:
         music_file.write(music.getvalue())
     if save_covers:
         if album_dirs:
-            os.makedirs(os.path.join(output_dir, "covers", album_dirname), exist_ok=True)
-            cover_filename = os.path.join(
-                output_dir, "covers", album_dirname, song_filestem + ".png"
-            )
+            (output_dir / "covers" / album_dirname).mkdir(parents=True, exist_ok=True)
+            cover_filename = output_dir / "covers" / album_dirname / (song_filestem + ".png")
         else:
-            cover_filename = os.path.join(output_dir, "covers", song_filestem + ".png")
-        with open(cover_filename, "wb") as cover_file:
+            cover_filename = output_dir / "covers" / (song_filestem + ".png")
+        with cover_filename.open("wb") as cover_file:
             cover.save(cover_file, format="png")
     return f"Exported song: {song.title} by {song.artist}"
 
 
 def rip(
-    game_dir: str,
-    output_dir: str,
+    game_dir: pathlib.Path,
+    output_dir: pathlib.Path,
     language: str,
     album_dirs: bool,
     save_covers: bool,
@@ -369,7 +373,7 @@ def rip(
     progress(0)
 
     # validate input
-    if not os.path.exists(os.path.join(game_dir, "MuseDash.exe")):
+    if not (game_dir / "MuseDash.exe").exists():
         raise UserError(
             "Could not find MuseDash.exe in game folder. Did you select the right folder?"
         )
@@ -381,7 +385,7 @@ def rip(
     logger.info("save_covers: %s", save_covers)
     logger.info("save_songs_csv: %s", save_songs_csv)
 
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Parsing game config...")
     songs = parse_config(
         game_dir, language, progress=lambda x: progress(x * CONFIG_PARSE_PROGRESS / 100)
@@ -389,13 +393,11 @@ def rip(
     fix_songs(songs)
     if save_songs_csv:
         logger.info("Saving songs.csv...")
-        with open(
-            os.path.join(output_dir, "songs.csv"), "wt", newline="", encoding="utf-8"
-        ) as csv_file:
+        with (output_dir / "songs.csv").open("wt", encoding="utf-8", newline="") as csv_file:
             songs_to_csv(songs, csv_file)
     normalize_songs(songs)
     if save_covers:
-        os.makedirs(os.path.join(output_dir, "covers"), exist_ok=True)
+        (output_dir / "covers").mkdir(parents=True, exist_ok=True)
     num_albums = len(set(song.album_number for song in songs))
     logger.info("%s songs in %s albums found.", len(songs), num_albums)
     if stop_event.is_set():

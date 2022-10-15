@@ -2,6 +2,7 @@
 
 import logging
 import multiprocessing
+import pathlib
 import queue
 import threading
 
@@ -105,13 +106,24 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         self.progress_bar.pack(fill="x", pady="0.1c")
 
         self.log = scrolledtext.ScrolledText(self, height=10, state="disabled")
-        # TODO: use keybinds to disable cursor, instead of toggling state?
         # see https://stackoverflow.com/questions/3842155/is-there-a-way-to-make-the-tkinter-text-widget-read-only  pylint: disable=line-too-long
         self.log.bind("<Control-c>", self.copy_log)
         self.log.pack(expand="y", fill="both")
 
         self.start = ttk.Button(self, text="Start!", command=self.start_rip)
         self.start.pack(side="bottom", pady="0.1c")
+
+        self.interactive_elems = [
+            self.gd_entry,
+            self.gd_button,
+            self.od_entry,
+            self.od_button,
+            self.language_menu,
+            self.ad_checkbutton,
+            self.sc_checkbutton,
+            self.ssc_checkbutton,
+            self.start,
+        ]
 
     def set_gamedir(self):
         """Open a file dialog to browse to the Muse Dash game directory"""
@@ -136,15 +148,14 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
 
     def start_rip(self):
         """Start the ripping process on another thread"""
-        self.start["state"] = "disabled"  # prevent multiple presses
+        for elem in self.interactive_elems:
+            elem["state"] = "disabled"
 
         # clear log
         self.log["state"] = "normal"
         self.log.delete(1.0, "end")
         self.log["state"] = "disabled"
         self.log_empty = True
-
-        self.start["state"] = "disabled"
 
         self.rip_thread = threading.Thread(target=self.rip, name="rip_thread")
         self.rip_thread.start()
@@ -157,8 +168,8 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         """
         try:
             rip_done = core.rip(
-                self.gd_entry.get(),
-                self.od_entry.get(),
+                pathlib.Path(self.gd_entry.get()),
+                pathlib.Path(self.od_entry.get()),
                 self.language_var.get(),
                 self.ad_var.get(),
                 self.sc_var.get(),
@@ -188,7 +199,10 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
     def done_rip(self, _event=None):
         """Handler for <<done_rip>> event, finishing up the ripping process"""
         self.rip_thread = None
-        self.start["state"] = "normal"
+
+        for elem in self.interactive_elems:
+            elem["state"] = "enabled"
+
         if self.done_messagebox:
             if self.done_messagebox[0] == "Error":
                 messagebox.showerror(*self.done_messagebox)
@@ -219,7 +233,6 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
                 self.close_event.set()
                 logger.info("Cancelling...")
                 # schedule initial check
-                # TODO: disable all widgets while waiting for close
                 self.master.after(100, self.close, True)
             if chained:
                 # chain checks
