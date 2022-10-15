@@ -8,14 +8,14 @@ import glob
 import io
 import logging
 import os
-from threading import Event
+import threading
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, TextIO
 
 import fsb5  # type: ignore
 import json5  # type: ignore
-from mutagen.oggvorbis import OggVorbis
-from mutagen.flac import Picture
-from PIL.Image import Image
+import mutagen.oggvorbis
+import mutagen.flac
+import PIL.Image
 import UnityPy.classes  # type: ignore
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ def load_json(bundle_path: str, asset_name: str) -> List:
 
 def parallel_execute(
     executor: concurrent.futures.ProcessPoolExecutor,
-    stop_event: Event,
+    stop_event: threading.Event,
     func: Callable,
     args: Sequence,
     iterable: Iterable,
@@ -262,7 +262,7 @@ def extract_music(game_dir: str, song: Song) -> io.BytesIO:
         return io.BytesIO(fsb.rebuild_sample(fsb.samples[0]).tobytes())
 
 
-def extract_cover(game_dir: str, song: Song) -> Image:
+def extract_cover(game_dir: str, song: Song) -> PIL.Image.Image:
     """Find and extract a cover image from game assets given a Song"""
     datas_path = os.path.join(game_dir, DATAS_DIR)
     prefix = "song_" + song.asset_name + "_assets_all_"
@@ -272,14 +272,14 @@ def extract_cover(game_dir: str, song: Song) -> Image:
         return find_asset(env, "Texture2D", song.cover_name).image
 
 
-def embed_metadata(music_file: io.BytesIO, cover_image: Image, song: Song) -> None:
+def embed_metadata(music_file: io.BytesIO, cover_image: PIL.Image.Image, song: Song) -> None:
     """Add metadata to extracted OGG files.
 
     For details on the METADATA_BLOCK_PICTURE struct format, see
     https://xiph.org/flac/format.html#metadata_block_picture
     """
     music_file.seek(0)
-    audio = OggVorbis(music_file)
+    audio = mutagen.oggvorbis.OggVorbis(music_file)
     audio["title"] = song.title
     audio["artist"] = song.artist
     audio["album"] = song.album_name
@@ -287,7 +287,7 @@ def embed_metadata(music_file: io.BytesIO, cover_image: Image, song: Song) -> No
     audio["tracktotal"] = str(song.track_total)
     if song.genre is not None:
         audio["genre"] = song.genre
-    picture = Picture()
+    picture = mutagen.flac.Picture()
 
     # PIL does not allow for direct saving to bytes
     cover_image_file = io.BytesIO()
@@ -363,7 +363,7 @@ def rip(
     save_covers: bool,
     save_songs_csv: bool,
     progress: Callable[[float], None],
-    stop_event: Event,
+    stop_event: threading.Event,
 ) -> bool:
     """Rip the soundtrack from an installation of Muse Dash"""
     progress(0)
