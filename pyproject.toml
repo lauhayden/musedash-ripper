@@ -13,7 +13,7 @@ classifiers = [
 repository = "https://github.com/lauhayden/musedash-ripper"
 
 [tool.poetry.dependencies]
-python = ">=3.9, <3.12" # <3.12 required by pyinstaller
+python = ">=3.8, <3.12" # <3.12 required by pyinstaller
 json5 = "^0.9.10"
 mutagen = "^1.46.0"
 Pillow = "^9.2.0"
