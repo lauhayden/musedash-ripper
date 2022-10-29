@@ -72,7 +72,7 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         self.od_frame.pack(fill="x", pady="0.1c")
 
         self.options_frame = ttk.Frame(self)
-        self.language_var = tk.StringVar(self, "None")
+        self.language_var = tk.StringVar(self, "English")
         self.language_menu = ttk.Combobox(
             self.options_frame,
             textvariable=self.language_var,
