@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "musedash-ripper"
-version = "1.2.1"
+version = "1.2.2"
 description = "Tool for ripping the Muse Dash soundtrack."
 readme = "README.md"
 authors = ["Hayden Lau"]
