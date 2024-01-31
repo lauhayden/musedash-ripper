@@ -14,12 +14,12 @@ repository = "https://github.com/lauhayden/musedash-ripper"
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12" # <3.12 required by pyinstaller
-json5 = "^0.9.10"
 mutagen = "^1.46.0"
 Pillow = "^9.2.0"
 UnityPy = "^1.9.16"
 # depend on patched python-fsb5
 fsb5 = { git = "https://github.com/lauhayden/python-fsb5.git" }
+pyjson5 = "^1.6.5"
 
 [tool.poetry.dev-dependencies]
 black = "^22.10.0"

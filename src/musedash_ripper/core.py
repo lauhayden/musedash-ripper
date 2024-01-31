@@ -11,15 +11,16 @@ import threading
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, TextIO
 
 import fsb5  # type: ignore
-import json5  # type: ignore
 import mutagen.oggvorbis
 import mutagen.flac
 import PIL.Image
+import pyjson5  # much faster than json5
 import UnityPy.classes  # type: ignore
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-DATAS_DIR = pathlib.Path("MuseDash_Data", "StreamingAssets", "aa", "StandaloneWindows64")
+ADDRESSABLES_DIR = pathlib.Path("MuseDash_Data", "StreamingAssets", "aa")
+CATALOG_BUNDLE_PREFIX = "{UnityEngine.AddressableAssets.Addressables.RuntimePath}\\"
 
 # Remove these characters before writing filename
 ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*'
@@ -43,7 +44,7 @@ LANGUAGES: Dict[Optional[str], Optional[str]] = {
 
 # how much percent of the overall ripping time is config parsing?
 # this is rough and for the progress bar only. Depends on number of cores and such
-CONFIG_PARSE_PROGRESS: float = 20
+CONFIG_PARSE_PROGRESS: float = 10
 
 
 class UserError(Exception):
@@ -116,12 +117,26 @@ def find_asset(
     return None
 
 
-def find_with_prefix(dir_path: pathlib.Path, prefix: str) -> pathlib.Path:
+def load_catalog(game_dir: pathlib.Path) -> List[str]:
+    """Parse the Addressables catalog.json to get a list of all bundles"""
+    catalog_path = game_dir / ADDRESSABLES_DIR / "catalog.json"
+    with open(catalog_path, "rb") as catalog_file:
+        # mypy decides that decode() does not take a file, pylint can't see inside pyjson5
+        internal_ids = pyjson5.decode_io(catalog_file)["m_InternalIds"]  # type: ignore[arg-type] # pylint: disable=no-member
+    filtered = filter(lambda s: s.startswith(CATALOG_BUNDLE_PREFIX), internal_ids)
+    return list(map(lambda s: s[len(CATALOG_BUNDLE_PREFIX) :], filtered))
+
+
+def find_with_prefix(game_dir: pathlib.Path, catalog_list: List[str], prefix: str) -> pathlib.Path:
     """Find a file with a prefix in a folder"""
-    results = list(dir_path.glob(prefix + "*"))
-    if len(results) != 1:
+    addressables_path = game_dir / ADDRESSABLES_DIR
+    filtered = list(filter(lambda s: s.startswith("StandaloneWindows64\\" + prefix), catalog_list))
+    if len(filtered) != 1:
         raise FileNotFoundError(f"Could not find unique bundle file with prefix '{prefix}'")
-    return results[0]
+    full_path = addressables_path / filtered[0]
+    if not full_path.exists():
+        raise FileNotFoundError(f"Bundle file not found: '{full_path}'")
+    return full_path
 
 
 def load_json(bundle_path: pathlib.Path, asset_name: str) -> List:
@@ -130,7 +145,8 @@ def load_json(bundle_path: pathlib.Path, asset_name: str) -> List:
         env = UnityPy.load(bundle_file)
         data = find_asset(env, "TextAsset", asset_name)
         # We use JSON5 parsing because the albums JSON assets have trailing commas
-        return json5.loads(data.text)
+        # pylint can't see inside pyjson5
+        return pyjson5.decode(data.text)  # pylint: disable=no-member
 
 
 def parallel_execute(
@@ -167,20 +183,20 @@ def parallel_execute(
 
 
 def parse_config(
-    game_dir: pathlib.Path, language: Optional[str], progress: Callable[[float], None]
+    game_dir: pathlib.Path,
+    catalog_list: List[str],
+    language: Optional[str],
+    progress: Callable[[float], None],
 ) -> List[Song]:
     """Parse the game configuration JSONs to create a list of Songs"""
     l_suffix = LANGUAGES.get(language)
-    datas_path = game_dir / DATAS_DIR
-
     # load the "albums" JSON containing info on all albums
-    albums_path = find_with_prefix(datas_path, "config_others_assets_albums_")
+    albums_path = find_with_prefix(game_dir, catalog_list, "config_others_assets_albums_")
     albums_json = load_json(albums_path, "albums")
-
     # load the language-specific albums JSON
     if l_suffix is not None:
         prefix = "config_" + l_suffix.lower() + "_assets_albums_" + l_suffix.lower() + "_"
-        l_albums_path = find_with_prefix(datas_path, prefix)
+        l_albums_path = find_with_prefix(game_dir, catalog_list, prefix)
         l_albums_json = load_json(l_albums_path, "albums_" + l_suffix)
         assert len(albums_json) == len(l_albums_json)
     else:
@@ -198,7 +214,7 @@ def parse_config(
 
         # load individual album JSON
         prefix = "config_others_assets_" + album_entry["jsonName"].lower() + "_"
-        entry_path = find_with_prefix(datas_path, prefix)
+        entry_path = find_with_prefix(game_dir, catalog_list, prefix)
         entry_json = load_json(entry_path, album_entry["jsonName"])
 
         # load the language-specific individual album JSON
@@ -212,7 +228,7 @@ def parse_config(
                 + l_suffix.lower()
                 + "_"
             )
-            l_entry_path = find_with_prefix(datas_path, prefix)
+            l_entry_path = find_with_prefix(game_dir, catalog_list, prefix)
             l_entry_json = load_json(l_entry_path, album_entry["jsonName"] + "_" + l_suffix)
             assert len(entry_json) == len(l_entry_json)
         else:
@@ -246,11 +262,10 @@ def parse_config(
     return sorted(songs, key=lambda song: (song.album_number, song.track_number))
 
 
-def extract_music(game_dir: pathlib.Path, song: Song) -> io.BytesIO:
+def extract_music(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -> io.BytesIO:
     """Find and extract the music file from game assets given a Song"""
-    datas_path = game_dir / DATAS_DIR
     prefix = "music_assets_" + song.music_name + "_"
-    music_path = find_with_prefix(datas_path, prefix)
+    music_path = find_with_prefix(game_dir, catalog_list, prefix)
     with open(music_path, "rb") as music_file:
         env = UnityPy.load(music_file)
         data = find_asset(env, "AudioClip", song.music_name)
@@ -262,11 +277,10 @@ def extract_music(game_dir: pathlib.Path, song: Song) -> io.BytesIO:
         return io.BytesIO(fsb.rebuild_sample(fsb.samples[0]).tobytes())
 
 
-def extract_cover(game_dir: pathlib.Path, song: Song) -> PIL.Image.Image:
+def extract_cover(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -> PIL.Image.Image:
     """Find and extract a cover image from game assets given a Song"""
-    datas_path = game_dir / DATAS_DIR
     prefix = "song_" + song.asset_name + "_assets_all_"
-    assets_path = find_with_prefix(datas_path, prefix)
+    assets_path = find_with_prefix(game_dir, catalog_list, prefix)
     with open(assets_path, "rb") as assets_file:
         env = UnityPy.load(assets_file)
         return find_asset(env, "Texture2D", song.cover_name).image
@@ -330,6 +344,7 @@ def songs_to_csv(songs: List[Song], csv_file: TextIO) -> None:
 
 def export_song(
     game_dir: pathlib.Path,
+    catalog_list: List[str],
     output_dir: pathlib.Path,
     album_dirs: bool,
     save_covers: bool,
@@ -338,8 +353,8 @@ def export_song(
     """Rip a single song"""
     album_dirname = normalize_path_segment(song.album_name)
     song_filestem = normalize_path_segment(song.title)
-    music = extract_music(game_dir, song)
-    cover = extract_cover(game_dir, song)
+    music = extract_music(game_dir, catalog_list, song)
+    cover = extract_cover(game_dir, catalog_list, song)
     embed_metadata(music, cover, song)
     if album_dirs:
         (output_dir / album_dirname).mkdir(parents=True, exist_ok=True)
@@ -387,8 +402,9 @@ def rip(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Parsing game config...")
+    catalog = load_catalog(game_dir)
     songs = parse_config(
-        game_dir, language, progress=lambda x: progress(x * CONFIG_PARSE_PROGRESS / 100)
+        game_dir, catalog, language, progress=lambda x: progress(x * CONFIG_PARSE_PROGRESS / 100)
     )
     fix_songs(songs)
     if save_songs_csv:
@@ -418,7 +434,7 @@ def rip(
             executor,
             stop_event,
             export_song,
-            (game_dir, output_dir, album_dirs, save_covers),
+            (game_dir, catalog, output_dir, album_dirs, save_covers),
             songs,
             log_exported,
         ):
