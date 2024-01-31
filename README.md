@@ -15,10 +15,10 @@ A simple GUI program to rip the Muse Dash soundtrack. Only supports Windows.
 * supports all languages that Muse Dash supports, with corresponding changes in song names, artist names, album names, etc.
 	* Chinese Traditional
 	* Chinese Simplified
-	* English
+	* English (default)
 	* Japanese
 	* Korean
-	* None (default): use the default names for everything
+	* None: use the default names for everything
 
 # Development
 
