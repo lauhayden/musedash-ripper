@@ -252,7 +252,8 @@ def parse_config(
                 with (pathlib.Path("album_jsons") / file_name).open("wt") as json_file:
                     json.dump(l_entry_json, json_file, indent=4)
 
-            assert len(entry_json) == len(l_entry_json)
+            if len(entry_json) != len(l_entry_json):
+                logger.warning("%s has differing length JSONs", album_entry["jsonName"])
         else:
             l_entry_json = [{}] * len(entry_json)
 
