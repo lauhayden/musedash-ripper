@@ -127,6 +127,11 @@ def load_catalog(game_dir: pathlib.Path) -> List[str]:
     with open(catalog_path, "rb") as catalog_file:
         # mypy decides that decode() does not take a file, pylint can't see inside pyjson5
         internal_ids = pyjson5.decode_io(catalog_file)["m_InternalIds"]  # type: ignore[arg-type] # pylint: disable=no-member
+
+    if DEBUG:
+        with open("internal_ids.json", "wt") as json_file:
+            json.dump(internal_ids, json_file, indent=4)
+
     filtered = filter(lambda s: s.startswith(CATALOG_BUNDLE_PREFIX), internal_ids)
     return list(map(lambda s: s[len(CATALOG_BUNDLE_PREFIX) :], filtered))
 
