@@ -292,7 +292,7 @@ def parse_config(
 
 def extract_music(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -> io.BytesIO:
     """Find and extract the music file from game assets given a Song"""
-    prefix = "music_assets_" + song.music_name + "_"
+    prefix = "music_" + song.asset_name + "_assets_all"
     music_path = find_with_prefix(game_dir, catalog_list, prefix)
     with open(music_path, "rb") as music_file:
         env = UnityPy.load(music_file)
