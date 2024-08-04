@@ -5,7 +5,9 @@ import csv
 import concurrent.futures
 import dataclasses
 import io
+import json
 import logging
+import os
 import pathlib
 import threading
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, TextIO
@@ -18,6 +20,8 @@ import pyjson5  # much faster than json5
 import UnityPy.classes  # type: ignore
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+DEBUG = os.getenv("MDRIPPER_DEBUG") is not None
 
 ADDRESSABLES_DIR = pathlib.Path("MuseDash_Data", "StreamingAssets", "aa")
 CATALOG_BUNDLE_PREFIX = "{UnityEngine.AddressableAssets.Addressables.RuntimePath}\\"
@@ -193,11 +197,18 @@ def parse_config(
     # load the "albums" JSON containing info on all albums
     albums_path = find_with_prefix(game_dir, catalog_list, "config_others_assets_albums_")
     albums_json = load_json(albums_path, "albums")
+    if DEBUG:
+        with open("albums.json", "wt") as json_file:
+            json.dump(albums_json, json_file, indent=4)
+
     # load the language-specific albums JSON
     if l_suffix is not None:
         prefix = "config_" + l_suffix.lower() + "_assets_albums_" + l_suffix.lower() + "_"
         l_albums_path = find_with_prefix(game_dir, catalog_list, prefix)
         l_albums_json = load_json(l_albums_path, "albums_" + l_suffix)
+        if DEBUG:
+            with open("albums_l.json", "wt") as json_file:
+                json.dump(l_albums_json, json_file, indent=4)
         assert len(albums_json) == len(l_albums_json)
     else:
         l_albums_json = [{}] * len(albums_json)
@@ -216,6 +227,12 @@ def parse_config(
         prefix = "config_others_assets_" + album_entry["jsonName"].lower() + "_"
         entry_path = find_with_prefix(game_dir, catalog_list, prefix)
         entry_json = load_json(entry_path, album_entry["jsonName"])
+        if DEBUG:
+            folder = pathlib.Path("album_jsons")
+            folder.mkdir(exist_ok=True)
+            file_name = album_entry["jsonName"].lower() + ".json"
+            with (folder / file_name).open("wt") as json_file:
+                json.dump(entry_json, json_file, indent=4)
 
         # load the language-specific individual album JSON
         if l_suffix is not None:
@@ -230,6 +247,11 @@ def parse_config(
             )
             l_entry_path = find_with_prefix(game_dir, catalog_list, prefix)
             l_entry_json = load_json(l_entry_path, album_entry["jsonName"] + "_" + l_suffix)
+            if DEBUG:
+                file_name = album_entry["jsonName"].lower() + "_l.json"
+                with (pathlib.Path("album_jsons") / file_name).open("wt") as json_file:
+                    json.dump(l_entry_json, json_file, indent=4)
+
             assert len(entry_json) == len(l_entry_json)
         else:
             l_entry_json = [{}] * len(entry_json)
