@@ -131,7 +131,7 @@ def load_catalog(game_dir: pathlib.Path) -> List[str]:
         internal_ids = pyjson5.decode_io(catalog_file)["m_InternalIds"]  # type: ignore[arg-type] # pylint: disable=no-member
 
     if DEBUG:
-        with open("internal_ids.json", "wt") as json_file:
+        with pathlib.Path("internal_ids.json").open("wt", encoding="utf-8") as json_file:
             json.dump(internal_ids, json_file, indent=4)
 
     filtered = filter(lambda s: s.startswith(CATALOG_BUNDLE_PREFIX), internal_ids)
@@ -205,7 +205,7 @@ def parse_config(
     albums_path = find_with_prefix(game_dir, catalog_list, "config_others_assets_albums_")
     albums_json = load_json(albums_path, "albums")
     if DEBUG:
-        with open("albums.json", "wt") as json_file:
+        with pathlib.Path("albums.json").open("wt", encoding="utf-8") as json_file:
             json.dump(albums_json, json_file, indent=4)
 
     # load the language-specific albums JSON
@@ -214,7 +214,7 @@ def parse_config(
         l_albums_path = find_with_prefix(game_dir, catalog_list, prefix)
         l_albums_json = load_json(l_albums_path, "albums_" + l_suffix)
         if DEBUG:
-            with open("albums_l.json", "wt") as json_file:
+            with pathlib.Path("albums_l.json").open("wt", encoding="utf-8") as json_file:
                 json.dump(l_albums_json, json_file, indent=4)
         assert len(albums_json) == len(l_albums_json)
     else:
@@ -238,7 +238,7 @@ def parse_config(
             folder = pathlib.Path("album_jsons")
             folder.mkdir(exist_ok=True)
             file_name = album_entry["jsonName"].lower() + ".json"
-            with (folder / file_name).open("wt") as json_file:
+            with (folder / file_name).open("wt", encoding="utf-8") as json_file:
                 json.dump(entry_json, json_file, indent=4)
 
         # load the language-specific individual album JSON
@@ -256,7 +256,9 @@ def parse_config(
             l_entry_json = load_json(l_entry_path, album_entry["jsonName"] + "_" + l_suffix)
             if DEBUG:
                 file_name = album_entry["jsonName"].lower() + "_l.json"
-                with (pathlib.Path("album_jsons") / file_name).open("wt") as json_file:
+                with (pathlib.Path("album_jsons") / file_name).open(
+                    "wt", encoding="utf-8"
+                ) as json_file:
                     json.dump(l_entry_json, json_file, indent=4)
 
             if len(entry_json) != len(l_entry_json):
