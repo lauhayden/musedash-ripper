@@ -69,7 +69,8 @@ class Song:
     album_name: str  # human-friendly album name
     track_number: int  # track number in the album (1-indexed)
     track_total: int  # number of tracks in the album
-    asset_name: str  # internal code-friendly song name used
+    music_asset_name: str  # internal code-friendly name for "music" asset
+    song_asset_name: str  # internal code-friendly name for "song" asset
     music_name: str  # music data asset name
     cover_name: str  # cover data asset name
     genre: Optional[str] = None  # optional music genre
@@ -81,18 +82,19 @@ def fix_songs(songs: List[Song]) -> None:
         # chaos_glitch's asset and cover names are mangled
         if song.cover_name == "chaos_glitch_cover":
             song.cover_name = "chaos_cover"
-        if song.asset_name == "chaos_glitch":
-            song.asset_name = "chaos"
+        if song.song_asset_name == "chaos_glitch":
+            song.song_asset_name = "chaos"
 
         # misspelled "Everything" in "Cute is Everyting"
         song.album_name = song.album_name.replace("Everyting", "Everything")
 
-        # if "_music" is in asset_name, it gets dropped
-        song.asset_name = song.asset_name.replace("_music", "")
+        # if "_music" is in *_asset_name, it gets dropped
+        song.music_asset_name = song.music_asset_name.replace("_music", "")
+        song.song_asset_name = song.song_asset_name.replace("_music", "")
 
         # fm_17314_sugar_radio uses qu_jianhai_de_rizi's cover
-        if song.asset_name == "fm_17314_sugar_radio":
-            song.asset_name = "qu_jianhai_de_rizi"
+        if song.song_asset_name == "fm_17314_sugar_radio":
+            song.song_asset_name = "qu_jianhai_de_rizi"
             song.cover_name = "qu_jianhai_de_rizi_cover"
 
 
@@ -280,7 +282,8 @@ def parse_config(
                     album_name=album_entry["title"],
                     track_number=track_num,
                     track_total=len(entry_json),
-                    asset_name=asset_name,
+                    music_asset_name=asset_name,
+                    song_asset_name=asset_name,
                     music_name=song_entry["music"],
                     cover_name=song_entry["cover"],
                 )
@@ -292,7 +295,7 @@ def parse_config(
 
 def extract_music(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -> io.BytesIO:
     """Find and extract the music file from game assets given a Song"""
-    prefix = "music_" + song.asset_name + "_assets_all"
+    prefix = "music_" + song.music_asset_name + "_assets_all"
     music_path = find_with_prefix(game_dir, catalog_list, prefix)
     with open(music_path, "rb") as music_file:
         env = UnityPy.load(music_file)
@@ -307,7 +310,7 @@ def extract_music(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -
 
 def extract_cover(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -> PIL.Image.Image:
     """Find and extract a cover image from game assets given a Song"""
-    prefix = "song_" + song.asset_name + "_assets_all_"
+    prefix = "song_" + song.song_asset_name + "_assets_all_"
     assets_path = find_with_prefix(game_dir, catalog_list, prefix)
     with open(assets_path, "rb") as assets_file:
         env = UnityPy.load(assets_file)
