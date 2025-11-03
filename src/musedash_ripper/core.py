@@ -18,6 +18,7 @@ import mutagen.flac
 import PIL.Image
 import pyjson5  # much faster than json5
 import UnityPy.classes  # type: ignore
+import UnityPy.helpers.ResourceReader  # type: ignore
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ def find_asset(
         if obj.type.name != object_type:
             continue
         data = obj.read()
-        if data.name == name:
+        if data.m_Name == name:
             return data
     if raise_on_not_found:
         raise FileNotFoundError(f"Could not find asset '{name}'")
@@ -157,7 +158,7 @@ def load_json(bundle_path: pathlib.Path, asset_name: str) -> List:
         data = find_asset(env, "TextAsset", asset_name)
         # We use JSON5 parsing because the albums JSON assets have trailing commas
         # pylint can't see inside pyjson5
-        return pyjson5.decode(data.text)  # pylint: disable=no-member
+        return pyjson5.decode(data.m_Script)  # pylint: disable=no-member
 
 
 def parallel_execute(
@@ -303,8 +304,26 @@ def extract_music(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -
         env = UnityPy.load(music_file)
         data = find_asset(env, "AudioClip", song.music_name)
 
+        # fetch the raw data bytes
+        # see https://github.com/K0lb3/UnityPy/blob/3be629fe58156214bf14d794dbd7b9e0f0b44ca5/UnityPy/export/AudioClipConverter.py
+        if data.m_AudioData:
+            audio_data = data.m_AudioData
+        elif data.m_Resource:
+            assert (
+                data.object_reader is not None
+            ), "AudioClip uses an external resource but object_reader is not set"
+            resource = data.m_Resource
+            audio_data = UnityPy.helpers.ResourceReader.get_resource_data(
+                resource.m_Source,
+                data.object_reader.assets_file,
+                resource.m_Offset,
+                resource.m_Size,
+            )
+        else:
+            raise ValueError("AudioClip with neither m_AudioData nor m_Resource")
+
         # use python-fsb5 to rebuild the Ogg Vorbis file from FSB5 compressed
-        fsb = fsb5.FSB5(data.m_AudioData)
+        fsb = fsb5.FSB5(audio_data)
         # there should only be one track
         assert len(fsb.samples) == 1
         return io.BytesIO(fsb.rebuild_sample(fsb.samples[0]).tobytes())
