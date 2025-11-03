@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import pathlib
+import platform
 import threading
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, TextIO
 
@@ -30,10 +31,6 @@ CATALOG_BUNDLE_PREFIX = "{UnityEngine.AddressableAssets.Addressables.RuntimePath
 # Remove these characters before writing filename
 ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*'
 
-# default to Steam install location
-DEFAULT_GAME_DIR = pathlib.Path(
-    "C:/", "Program Files (x86)", "Steam", "steamapps", "common", "Muse Dash"
-)
 # default output folder is next to our .EXE
 DEFAULT_OUT_DIR = pathlib.Path.cwd() / "muse_dash_soundtrack"
 
@@ -75,6 +72,20 @@ class Song:
     music_name: str  # music data asset name
     cover_name: str  # cover data asset name
     genre: Optional[str] = None  # optional music genre
+
+
+def detect_default_gamedir() -> pathlib.Path:
+    """Detect OS to get default game install location"""
+    if platform.system() == "Windows":
+        return pathlib.Path(
+            "C:/", "Program Files (x86)", "Steam", "steamapps", "common", "Muse Dash"
+        )
+    elif platform.system() == "Linux":
+        return pathlib.Path.home() / pathlib.Path(
+            ".local", "share", "Steam", "steamapps", "common", "Muse Dash"
+        )
+    else:
+        raise ValueError("Unsupported platform")
 
 
 def fix_songs(songs: List[Song]) -> None:
@@ -144,7 +155,7 @@ def find_with_prefix(game_dir: pathlib.Path, catalog_list: List[str], prefix: st
     filtered = list(filter(lambda s: s.startswith("StandaloneWindows64\\" + prefix), catalog_list))
     if len(filtered) != 1:
         raise FileNotFoundError(f"Could not find unique bundle file with prefix '{prefix}'")
-    full_path = addressables_path / filtered[0]
+    full_path = addressables_path / pathlib.Path(*filtered[0].split("\\"))
     if not full_path.exists():
         raise FileNotFoundError(f"Bundle file not found: '{full_path}'")
     return full_path

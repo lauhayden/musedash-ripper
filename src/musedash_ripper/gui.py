@@ -55,7 +55,7 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         self.gd_entry = ttk.Entry(
             self.gd_frame,
         )
-        self.gd_entry.insert(0, core.DEFAULT_GAME_DIR)
+        self.gd_entry.insert(0, core.detect_default_gamedir())
         self.gd_entry.pack(side="left", expand="y", fill="x", padx="0.1c")
         self.gd_button = ttk.Button(self.gd_frame, text="Browse...", command=self.set_gamedir)
         self.gd_button.pack(side="left")
