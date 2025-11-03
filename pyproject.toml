@@ -13,19 +13,19 @@ classifiers = [
 repository = "https://github.com/lauhayden/musedash-ripper"
 
 [tool.poetry.dependencies]
-python = ">=3.11,<3.13" # <3.13 required by pyinstaller
+python = ">=3.11,<3.15" # <3.15 is just in case for Pyinstaller
 mutagen = "^1.47.0"
-Pillow = "^10.2.0"
-UnityPy = "^1.10.7"
+Pillow = "^12.0.0"
+UnityPy = "^1.23.0"
 # depend on patched python-fsb5
 fsb5 = { git = "https://github.com/lauhayden/python-fsb5.git" }
-pyjson5 = "^1.6.5"
+pyjson5 = "^2.0.0"
 
-[tool.poetry.dev-dependencies]
-black = "^24.1.1"
-pyinstaller = "^6.3.0"
-pylint = "^3.0.3"
-mypy = "^1.8.0"
+[tool.poetry.group.dev.dependencies]
+black = "^25.9.0"
+pyinstaller = "^6.16.0"
+pylint = "^4.0.2"
+mypy = "^1.18.2"
 types-Pillow = "^10.2.0"
 
 [tool.poetry.scripts]
