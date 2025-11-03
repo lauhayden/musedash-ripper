@@ -11,7 +11,7 @@ import os
 import pathlib
 import platform
 import threading
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, TextIO
+from typing import Callable, Dict, Iterable, List, Optional, TextIO
 
 import fsb5  # type: ignore
 import mutagen.oggvorbis
@@ -19,7 +19,7 @@ import mutagen.flac
 import PIL.Image
 import pyjson5  # much faster than json5
 import UnityPy.classes  # type: ignore
-import UnityPy.helpers.ResourceReader  # type: ignore
+import UnityPy.helpers.ResourceReader
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -80,12 +80,11 @@ def detect_default_gamedir() -> pathlib.Path:
         return pathlib.Path(
             "C:/", "Program Files (x86)", "Steam", "steamapps", "common", "Muse Dash"
         )
-    elif platform.system() == "Linux":
+    if platform.system() == "Linux":
         return pathlib.Path.home() / pathlib.Path(
             ".local", "share", "Steam", "steamapps", "common", "Muse Dash"
         )
-    else:
-        raise ValueError("Unsupported platform")
+    raise ValueError("Unsupported platform")
 
 
 def fix_songs(songs: List[Song]) -> None:
@@ -119,19 +118,18 @@ def normalize_songs(songs: List[Song]) -> None:
         song.genre = "Video Games"
 
 
-def find_asset(
-    env: UnityPy.Environment, object_type: str, name: str, raise_on_not_found: bool = True
-) -> UnityPy.classes.NamedObject:
-    """Find a specific asset in a bundle"""
+def find_asset(env: UnityPy.Environment, object_type: str, name: str):
+    """Find a specific asset in a bundle
+
+    No return type because Mypy has issues with the various UnityPy classes
+    """
     for obj in env.objects:
         if obj.type.name != object_type:
             continue
         data = obj.read()
         if data.m_Name == name:
             return data
-    if raise_on_not_found:
-        raise FileNotFoundError(f"Could not find asset '{name}'")
-    return None
+    raise FileNotFoundError(f"Could not find asset '{name}'")
 
 
 def load_catalog(game_dir: pathlib.Path) -> List[str]:
@@ -172,17 +170,18 @@ def load_json(bundle_path: pathlib.Path, asset_name: str) -> List:
 
 
 def parallel_execute(
+    *,
     executor: concurrent.futures.ProcessPoolExecutor,
     stop_event: threading.Event,
     func: Callable,
-    args: Sequence,
+    kwargs: Dict,
     iterable: Iterable,
     done_callback: Callable,
 ) -> bool:
     """Use a ProcessPoolExecutor to run func in parallel with error handling"""
     not_done = set()
     for item in iterable:
-        not_done.add(executor.submit(func, *args, item))
+        not_done.add(executor.submit(func, song=item, **kwargs))
     error = None
     all_done = True
     while not_done:
@@ -316,7 +315,7 @@ def extract_music(game_dir: pathlib.Path, catalog_list: List[str], song: Song) -
         data = find_asset(env, "AudioClip", song.music_name)
 
         # fetch the raw data bytes
-        # see https://github.com/K0lb3/UnityPy/blob/3be629fe58156214bf14d794dbd7b9e0f0b44ca5/UnityPy/export/AudioClipConverter.py
+        # see https://github.com/K0lb3/UnityPy/blob/master/UnityPy/export/AudioClipConverter.py
         if data.m_AudioData:
             audio_data = data.m_AudioData
         elif data.m_Resource:
@@ -406,6 +405,7 @@ def songs_to_csv(songs: List[Song], csv_file: TextIO) -> None:
 
 
 def export_song(
+    *,
     game_dir: pathlib.Path,
     catalog_list: List[str],
     output_dir: pathlib.Path,
@@ -438,6 +438,7 @@ def export_song(
 
 
 def rip(
+    *,
     game_dir: pathlib.Path,
     output_dir: pathlib.Path,
     language: str,
@@ -494,12 +495,18 @@ def rip(
     logger.info("Exporting songs...")
     with concurrent.futures.ProcessPoolExecutor() as executor:
         if not parallel_execute(
-            executor,
-            stop_event,
-            export_song,
-            (game_dir, catalog, output_dir, album_dirs, save_covers),
-            songs,
-            log_exported,
+            executor=executor,
+            stop_event=stop_event,
+            func=export_song,
+            kwargs={
+                "game_dir": game_dir,
+                "catalog_list": catalog,
+                "output_dir": output_dir,
+                "album_dirs": album_dirs,
+                "save_covers": save_covers,
+            },
+            iterable=songs,
+            done_callback=log_exported,
         ):
             return False
 

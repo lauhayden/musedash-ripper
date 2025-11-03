@@ -168,14 +168,14 @@ class Application(ttk.Frame):  # pylint: disable=too-many-ancestors
         """
         try:
             rip_done = core.rip(
-                pathlib.Path(self.gd_entry.get()),
-                pathlib.Path(self.od_entry.get()),
-                self.language_var.get(),
-                self.ad_var.get(),
-                self.sc_var.get(),
-                self.ssc_var.get(),
-                self.progress_var.set,
-                self.close_event,
+                game_dir=pathlib.Path(self.gd_entry.get()),
+                output_dir=pathlib.Path(self.od_entry.get()),
+                language=self.language_var.get(),
+                album_dirs=self.ad_var.get(),
+                save_covers=self.sc_var.get(),
+                save_songs_csv=self.ssc_var.get(),
+                progress=self.progress_var.set,
+                stop_event=self.close_event,
             )
             if rip_done:
                 # don't show done message if user is exiting the application
