@@ -80,12 +80,6 @@ class Song:
 def fix_songs(songs: List[Song]) -> None:
     """Fix inconsistencies and typos in the song metadata"""
     for song in songs:
-        # chaos_glitch's asset and cover names are mangled
-        if song.cover_name == "chaos_glitch_cover":
-            song.cover_name = "chaos_cover"
-        if song.song_asset_name == "chaos_glitch":
-            song.song_asset_name = "chaos"
-
         # misspelled "Everything" in "Cute is Everyting"
         song.album_name = song.album_name.replace("Everyting", "Everything")
 
@@ -97,6 +91,11 @@ def fix_songs(songs: List[Song]) -> None:
         if song.song_asset_name == "fm_17314_sugar_radio":
             song.song_asset_name = "qu_jianhai_de_rizi"
             song.cover_name = "qu_jianhai_de_rizi_cover"
+
+        # misty_memory (both versions) have their cover in the night version's bundle
+        # this is contrary to what the Album JSON says
+        if song.song_asset_name == "misty_memory_day_version":
+            song.song_asset_name = "misty_memory_night_version"
 
 
 def normalize_songs(songs: List[Song]) -> None:
@@ -274,9 +273,10 @@ def parse_config(
             song_entry.update(l_song_entry)
 
             # construct Song from song and album entries
-            # asset_name reconstructed from cover_name
             assert song_entry["cover"].endswith("_cover")
-            asset_name = song_entry["cover"][: -len("_cover")]
+            song_asset_name = song_entry["cover"][: -len("_cover")]
+            assert song_entry["music"].endswith("_music")
+            music_asset_name = song_entry["music"][: -len("_music")]
             songs.append(
                 Song(
                     title=song_entry["name"],
@@ -285,8 +285,8 @@ def parse_config(
                     album_name=album_entry["title"],
                     track_number=track_num,
                     track_total=len(entry_json),
-                    music_asset_name=asset_name,
-                    song_asset_name=asset_name,
+                    music_asset_name=music_asset_name,
+                    song_asset_name=song_asset_name,
                     music_name=song_entry["music"],
                     cover_name=song_entry["cover"],
                 )
