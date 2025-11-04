@@ -8,7 +8,7 @@ a = Analysis(
     ['src\\musedash_ripper\\gui.py'],
     pathex=[],
     binaries=[("libogg.dll", "."), ("libvorbis.dll", ".")],
-    datas=collect_data_files("UnityPy"),
+    datas=collect_data_files("UnityPy") + collect_data_files("archspec"),
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
