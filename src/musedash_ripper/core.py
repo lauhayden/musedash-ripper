@@ -460,6 +460,7 @@ def rip(
     logger.info("Starting rip...")
     logger.info("game_dir: %s", game_dir)
     logger.info("output_dir: %s", output_dir)
+    logger.info("language: %s", language)
     logger.info("album_dirs: %s", album_dirs)
     logger.info("save_covers: %s", save_covers)
     logger.info("save_songs_csv: %s", save_songs_csv)
