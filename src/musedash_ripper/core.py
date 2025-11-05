@@ -412,7 +412,7 @@ def export_song(
     album_dirs: bool,
     save_covers: bool,
     song: Song,
-):
+) -> str:
     """Rip a single song"""
     album_dirname = normalize_path_segment(song.album_name)
     song_filestem = normalize_path_segment(song.title)
