@@ -1,4 +1,4 @@
-name: Format, Lint, and Typecheck
+name: Push Checks
 on: push
 jobs:
   format:
@@ -19,3 +19,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-env
       - run: poetry run mypy src
+  run-help:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-env
+      - run: poetry run musedash-ripper-cli --help
