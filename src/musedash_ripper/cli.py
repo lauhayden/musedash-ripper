@@ -23,19 +23,19 @@ def parse_args():
         "--game-dir",
         default=core.detect_default_gamedir(),
         type=pathlib.Path,
-        help="game directory with MuseDash.exe",
+        help=f"game directory with MuseDash.exe. [{core.detect_default_gamedir()}]",
     )
     parser.add_argument(
         "--out-dir",
         default=core.DEFAULT_OUT_DIR,
         type=pathlib.Path,
-        help="output directory for ripped music",
+        help=f"output directory for ripped music [{core.DEFAULT_OUT_DIR}]",
     )
     parser.add_argument(
         "--language",
         default="English",
         choices=core.LANGUAGES.keys(),
-        help="language for song names, album names, and metadata",
+        help="language for song names, album names, and metadata [English]",
     )
     parser.add_argument(
         "--no-album-dirs",
@@ -58,16 +58,19 @@ def main():
     logging.basicConfig(level=logging.INFO)
     signal.signal(signal.SIGINT, sigint_handler)
 
-    core.rip(
-        game_dir=args.game_dir,
-        output_dir=args.out_dir,
-        language=args.language,
-        album_dirs=not args.no_album_dirs,
-        save_covers=args.save_covers,
-        save_songs_csv=args.save_csv,
-        progress=lambda x: None,
-        stop_event=STOP_EVENT,
-    )
+    try:
+        core.rip(
+            game_dir=args.game_dir,
+            output_dir=args.out_dir,
+            language=args.language,
+            album_dirs=not args.no_album_dirs,
+            save_covers=args.save_covers,
+            save_songs_csv=args.save_csv,
+            progress=lambda x: None,
+            stop_event=STOP_EVENT,
+        )
+    except core.UserError as err:
+        logging.error(err.message)
 
 
 if __name__ == "__main__":

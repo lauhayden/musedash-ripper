@@ -30,6 +30,7 @@ types-Pillow = "^10.2.0"
 
 [tool.poetry.scripts]
 musedash-ripper = "musedash_ripper.gui:run"
+musedash-ripper-cli = "musedash_ripper.cli:main"
 
 [tool.black]
 line-length = 100
