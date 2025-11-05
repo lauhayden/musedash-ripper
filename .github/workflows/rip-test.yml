@@ -1,0 +1,9 @@
+name: Rip Test
+on: push
+jobs:
+  rip-test:
+    runs-on: windows-latest
+    steps:
+      - run: Invoke-WebRequest -Uri "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip" -OutFile "steamcmd.zip"
+      - run: Expand-Archive -Path "steamcmd.zip" -DestinationPath "./steamcmd" -Force
+      - run: steamcmd\steamcmd --help
