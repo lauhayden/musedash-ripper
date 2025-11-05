@@ -1,0 +1,21 @@
+name: Format, Lint, and Typecheck
+on: push
+jobs:
+  format:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-env
+      - run: poetry run black --check src
+  lint:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-env
+      - run: poetry run pylint src
+  typecheck:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-env
+      - run: poetry run mypy src
