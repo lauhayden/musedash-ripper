@@ -11,7 +11,7 @@ A simple GUI program to rip the Muse Dash soundtrack. Only supports Windows.
 * adds cover images and song metadata to the resulting `.ogg` files
 * optionally exports cover images as `.png`
 * optionally exports song metadata as `.csv`
-* optionally puts each exported song and cover into a filter with the album name
+* optionally puts each exported song and cover into a folder with the album name
 * supports all languages that Muse Dash supports, with corresponding changes in song names, artist names, album names, etc.
 	* Chinese Traditional
 	* Chinese Simplified
