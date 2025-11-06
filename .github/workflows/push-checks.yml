@@ -4,24 +4,36 @@ jobs:
   format:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-env
-      - run: poetry run black --check src
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Poetry environment
+        uses: ./.github/actions/setup-env
+      - name: Run black
+        run: poetry run black --check src
   lint:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-env
-      - run: poetry run pylint src
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Poetry environment
+        uses: ./.github/actions/setup-env
+      - name: Run pylint
+        run: poetry run pylint src
   typecheck:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-env
-      - run: poetry run mypy src
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Poetry environment
+        uses: ./.github/actions/setup-env
+      - name: Run mypy
+        run: poetry run mypy src
   run-help:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-env
-      - run: poetry run musedash-ripper-cli --help
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Setup Poetry environment
+        uses: ./.github/actions/setup-env
+      - name: Run musedash-ripper-cli --help
+        run: poetry run musedash-ripper-cli --help

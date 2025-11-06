@@ -1,21 +1,28 @@
-name: Rip Test
-on: push
+name: Nightly Rip Test
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '12 6 * * *'
 jobs:
   rip-test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v5
       - name: Setup Poetry environment
         uses: ./.github/actions/setup-env
       - name: Download age
         run: Invoke-WebRequest -Uri "https://github.com/FiloSottile/age/releases/download/v1.2.1/age-v1.2.1-windows-amd64.zip" -OutFile "age.zip"
       - name: Unzip age
         run: Expand-Archive -Path "age.zip" -DestinationPath "./" -Force
-      - name: Decrypt steamcmd environment with age
+      - name: Decrypt steamcmd environment
         env:
           AGE_IDENTITY: ${{ secrets.AGE_IDENTITY }}
         run: $env:AGE_IDENTITY | age\age --decrypt -i - -o steamcmd_env.zip steamcmd_env.zip.age 
       - name: Unzip steamcmd environment
         run: Expand-Archive -Path "steamcmd_env.zip" -DestinationPath "./steamcmd" -Force
-      - run: steamcmd\steamcmd +runscript ..\install_muse_dash.txt
-      - run: poetry run musedash-ripper-cli --game-dir muse_dash_install --language English --save-covers --save-csv
+      - name: Install Muse Dash
+        run: steamcmd\steamcmd +runscript ..\install_muse_dash.steamcmd
+        timeout-minutes: 30
+      - name: Rip soundtrack
+        run: poetry run musedash-ripper-cli --game-dir muse_dash_install --language English --save-covers --save-csv
