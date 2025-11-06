@@ -1,15 +1,19 @@
 name: Rip Test
-# on: push
+on: push
 jobs:
   rip-test:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-env
+      - name: Setup Poetry environment
+        uses: ./.github/actions/setup-env
       - name: Install age
         run:  winget install --disable-interactivity --accept-source-agreements --id FiloSottile.age
+      - name: Refresh PATH
+        run: $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
       - name: Decrypt steamcmd environment with age
-        env: AGE_IDENTITY: ${{ secrets.AGE_IDENTITY }}
+        env:
+          AGE_IDENTITY: ${{ secrets.AGE_IDENTITY }}
         run: $env:AGE_IDENTITY | age --decrypt -i - -o steamcmd_env.zip steamcmd_env.zip.age 
       - name: Unzip steamcmd environment
         run: Expand-Archive -Path "steamcmd_env.zip" -DestinationPath "./steamcmd" -Force
