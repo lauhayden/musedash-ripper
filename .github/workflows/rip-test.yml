@@ -18,6 +18,4 @@ jobs:
       - name: Unzip steamcmd environment
         run: Expand-Archive -Path "steamcmd_env.zip" -DestinationPath "./steamcmd" -Force
       - run: steamcmd\steamcmd +runscript ..\install_muse_dash.txt
-      - run: dir
-      - run: dir muse_dash_install
       - run: poetry run musedash-ripper-cli --game-dir muse_dash_install --language English --save-covers --save-csv

@@ -2,5 +2,6 @@
 @NoPromptForPassword 1
 force_install_dir ..\muse_dash_install
 login mdripper_ci
+app_info_print 774171
 app_update 774171 validate
 quit
